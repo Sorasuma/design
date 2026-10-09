@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Каталог фонов — Design Archive</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <div class="top-in">
+    <h1>Каталог фонов</h1>
+    <input id="q" type="search" placeholder="Поиск по названию, локации, автору…" autocomplete="off" aria-label="Поиск">
+    <div class="filters">
+      <select id="fSection" aria-label="Раздел"></select>
+      <select id="fGroup" aria-label="Территория"></select>
+      <select id="fLoc" aria-label="Локация"></select>
+      <select id="fSeason" aria-label="Сезон"></select>
+      <select id="fSort" aria-label="Сортировка">
+        <option value="az">А → Я</option>
+        <option value="za">Я → А</option>
+      </select>
+      <button id="reset" type="button">Сбросить</button>
+    </div>
+    <div id="count" class="count" aria-live="polite"></div>
+  </div>
+</header>
+
+<main>
+  <div id="grid" class="grid"></div>
+  <p id="empty" class="empty" hidden>Ничего не найдено. Измените запрос или фильтры.</p>
+  <details id="missing" class="missing"></details>
+</main>
+
+<footer class="foot">Изображения загружаются из репозитория <a href="https://github.com/NorthernClanAchievements/Design_Archive" target="_blank" rel="noopener">Design_Archive</a>. <span id="built"></span></footer>
+
+<div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
+  <div class="m-box">
+    <button id="mClose" class="m-close" type="button" aria-label="Закрыть">×</button>
+    <div id="mImgWrap" class="m-img loading">
+      <span class="spin"></span>
+      <img id="mImg" alt="">
+      <div class="err">Файл недоступен<br><button id="mRetry" type="button">Повторить</button></div>
+    </div>
+    <div class="m-side">
+      <h2 id="mTitle"></h2>
+      <p id="mMeta" class="meta"></p>
+      <div id="mTabs" class="chips"></div>
+      <div class="dl-row">
+        <select id="mFmt" aria-label="Формат скачивания"></select>
+        <button id="mDl" class="dl" type="button">Скачать</button>
+      </div>
+      <p class="hint">Клик по изображению — масштаб 100% / по размеру окна.</p>
+    </div>
+  </div>
+</div>
+<div id="toast" class="toast" hidden role="status"></div>
+
+<script src="data.js"></script>
+<script src="script.js"></script>
+</body>
+</html>
