@@ -31,8 +31,8 @@ const SEA_ORDER = ['Общий фон', 'Зима', 'Осень', 'Весна', 
 const seaVals = P.variantFilter ? [...new Set(items.flatMap(i => i.variants.map(v => v.label)))].sort((a, b) => SEA_ORDER.indexOf(a) - SEA_ORDER.indexOf(b)) : [];
 fill(el.sea, P.variantFilter || '', seaVals);
 el.sort.value = P.sort;
-const fmtOptions = Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
-el.mFmt.innerHTML = fmtOptions;
+const fmtOptions = Object.entries(FORMATS).filter(([k]) => !P.originalOnly || k === 'orig').map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
+el.mFmt.innerHTML = fmtOptions; el.mFmt.hidden = !!P.originalOnly;
 
 function filtered() {
   const words = norm(el.q.value).split(/\s+/).filter(Boolean);
@@ -57,7 +57,7 @@ function cardHtml(it) {
       <div class="err">Файл недоступен<br><button type="button" data-act="retry">Повторить</button></div>
     </div>
     <div class="body"><h3>${esc(it.name)}</h3><p class="meta">${esc(meta)}</p>${chips}
-      <div class="dl-row"><select class="fmt" aria-label="Формат скачивания">${fmtOptions}</select>
+      <div class="dl-row"><select class="fmt" aria-label="Формат скачивания"${P.originalOnly ? ' hidden' : ''}>${fmtOptions}</select>
       <button type="button" class="dl" data-act="dl">Скачать</button></div></div></article>`;
 }
 
@@ -152,6 +152,7 @@ async function convert(blob, mime) {
   throw new Error('canvas');
 }
 async function download(it, v, fmt, btn) {
+  if (P.originalOnly) fmt = 'orig'; // на этой странице — только оригиналы
   const label = btn.textContent; btn.disabled = true; btn.textContent = 'Загрузка…';
   try {
     let blob;

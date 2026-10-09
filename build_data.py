@@ -136,6 +136,7 @@ for r, row in rows(wb["Статусы Охота"], 4):
 pages["statuses"] = dict(title="Статусы охоты", sort="table", variantFilter="Любая добыча", items=st, missing=ms)
 
 # ---------- запись ----------
+for k, p in pages.items(): p["originalOnly"] = (k != "index")  # конвертация PNG/JPEG только для фонов
 for p in pages.values():
     for n, it in enumerate(p["items"], 1): it["id"] = n
 with open(os.path.join(ROOT, "data.js"), "w", encoding="utf-8") as f:

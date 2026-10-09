@@ -2470,7 +2470,8 @@ window.PAGES = {
     "section": "Актуальные",
     "location": "Вулканическая часть"
    }
-  ]
+  ],
+  "originalOnly": false
  },
  "headers": {
   "title": "Шапки блогов",
@@ -2827,7 +2828,8 @@ window.PAGES = {
     "id": 25
    }
   ],
-  "missing": []
+  "missing": [],
+  "originalOnly": true
  },
  "hunt": {
   "title": "Активная охота",
@@ -2974,7 +2976,8 @@ window.PAGES = {
     "id": 10
    }
   ],
-  "missing": []
+  "missing": [],
+  "originalOnly": true
  },
  "medals": {
   "title": "Медали (архив ивентовых)",
@@ -3863,7 +3866,8 @@ window.PAGES = {
     "id": 63
    }
   ],
-  "missing": []
+  "missing": [],
+  "originalOnly": true
  },
  "bots": {
   "title": "Боты",
@@ -4215,7 +4219,8 @@ window.PAGES = {
     "id": 22
    }
   ],
-  "missing": []
+  "missing": [],
+  "originalOnly": true
  },
  "clones": {
   "title": "Клоны",
@@ -4347,7 +4352,8 @@ window.PAGES = {
     "row": 5,
     "link": "https://vk.cc/cEcYT5"
    }
-  ]
+  ],
+  "originalOnly": true
  },
  "statuses": {
   "title": "Статусы охоты",
@@ -4731,6 +4737,7 @@ window.PAGES = {
     "id": 20
    }
   ],
-  "missing": []
+  "missing": [],
+  "originalOnly": true
  }
 };
