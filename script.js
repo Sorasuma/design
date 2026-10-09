@@ -10,13 +10,16 @@ const FORMATS = { orig: 'Оригинал', png: 'PNG', jpeg: 'JPEG' };
 const MIME = { png: 'image/png', jpeg: 'image/jpeg' };
 const EXT_MIME = { jpg: 'image/jpeg', jpeg: 'image/jpeg', png: 'image/png', gif: 'image/gif', webp: 'image/webp', avif: 'image/avif', bmp: 'image/bmp' };
 const MAX_SAFE_PIXELS = 16e6; // лимит canvas на многих мобильных браузерах
-const state = { vi: new Map(), fmt: 'orig', modalId: null };
+const state = { vi: new Map(), fmt: 'orig', modalId: null, favOnly: false, list: [] };
+const favKey = 'fav:' + document.body.dataset.page, keyOf = i => i.name + '|' + i.section; // избранное храним по названию, а не по номеру
+let favs = new Set();
+try { favs = new Set(JSON.parse(localStorage.getItem(favKey) || '[]')); } catch (_) { /* хранилище недоступно */ }
 const byId = new Map(items.map(i => [i.id, i]));
 items.forEach(i => { i._s = norm([i.name, i.location, i.group, i.authors, i.section].join(' ')); });
 
 const el = { q: $('#q'), sec: $('#fSection'), grp: $('#fGroup'), loc: $('#fLoc'), sea: $('#fSeason'), sort: $('#fSort'),
   grid: $('#grid'), empty: $('#empty'), count: $('#count'), modal: $('#modal'), mImg: $('#mImg'), mWrap: $('#mImgWrap'),
-  mTabs: $('#mTabs'), mFmt: $('#mFmt'), mDl: $('#mDl'), toast: $('#toast') };
+  mTabs: $('#mTabs'), mFmt: $('#mFmt'), mDl: $('#mDl'), toast: $('#toast'), fav: $('#favOnly') };
 
 /* ---------- фильтры ---------- */
 const uniq = key => [...new Set(items.map(i => i[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
@@ -39,7 +42,7 @@ function filtered() {
   const [sec, grp, loc, sea] = [el.sec.value, el.grp.value, el.loc.value, el.sea.value];
   const list = items.filter(i =>
     (!sec || i.section === sec) && (!grp || i.group === grp) && (!loc || i.location === loc) &&
-    (!sea || i.variants.some(v => v.label === sea)) && words.every(w => i._s.includes(w)));
+    (!sea || i.variants.some(v => v.label === sea)) && (!state.favOnly || favs.has(keyOf(i))) && words.every(w => i._s.includes(w)));
   if (el.sort.value === 'table') return list.sort((a, b) => a.id - b.id);
   const dir = el.sort.value === 'za' ? -1 : 1;
   return list.sort((a, b) => dir * a.name.localeCompare(b.name, 'ru'));
@@ -53,7 +56,7 @@ function cardHtml(it) {
   const meta = [it.section === 'Архив старых' ? 'Архив' : (it.location || it.group), it.variants.length === 1 && v.label && v.label !== 'Общий фон' ? v.label : ''].filter(Boolean).join(' · ');
   return `<article class="card" data-id="${it.id}">
     <div class="thumb loading" data-act="open" role="button" tabindex="0" aria-label="Открыть: ${esc(it.name)}">
-      <span class="spin"></span><img loading="lazy" decoding="async" alt="${esc(it.name)}" src="${esc(v.url)}">
+      <button type="button" class="star${favs.has(keyOf(it)) ? ' on' : ''}" data-act="fav" aria-label="В избранное">${favs.has(keyOf(it)) ? '★' : '☆'}</button><span class="spin"></span><img loading="lazy" decoding="async" alt="${esc(it.name)}" src="${esc(v.url)}">
       <div class="err">Файл недоступен<br><button type="button" data-act="retry">Повторить</button></div>
     </div>
     <div class="body"><h3>${esc(it.name)}</h3><p class="meta">${esc(meta)}</p>${chips}
@@ -68,6 +71,8 @@ function render() {
   el.grid.querySelectorAll('.fmt').forEach(s => { s.value = state.fmt; });
   el.empty.hidden = list.length > 0;
   el.count.textContent = `Показано ${list.length} из ${items.length}`;
+  el.empty.textContent = state.favOnly && !favs.size ? 'В избранном пока пусто — нажмите ☆ на карточке.' : 'Ничего не найдено. Измените запрос или фильтры.';
+  state.list = list; updFav(); writeHash();
 }
 
 function reload(wrap, img, url) { // перезапуск загрузки картинки
@@ -83,6 +88,7 @@ el.grid.addEventListener('click', e => {
   const t = e.target.closest('[data-act]'); if (!t) return;
   const card = t.closest('.card'), it = byId.get(+card.dataset.id), vi = state.vi.get(it.id) || 0;
   if (t.dataset.act === 'open') openModal(it.id);
+  else if (t.dataset.act === 'fav') toggleFav(it, t);
   else if (t.dataset.act === 'dl') download(it, it.variants[vi], card.querySelector('.fmt').value, t);
   else if (t.dataset.act === 'retry') { e.stopPropagation(); reload(card.querySelector('.thumb'), card.querySelector('img'), it.variants[vi].url); }
   else if (t.dataset.act === 'season') {
@@ -102,13 +108,14 @@ function openModal(id, silent) {
   el.mFmt.value = state.fmt; el.mWrap.classList.remove('zoom');
   el.mImg.alt = it.name; reload(el.mWrap, el.mImg, it.variants[vi].url);
   el.modal.hidden = false; document.body.style.overflow = 'hidden';
+  const k = state.list.findIndex(x => x.id === id); $('#mPos').textContent = k >= 0 ? `${k + 1} / ${state.list.length}` : ''; syncLink();
 }
 function closeModal() { el.modal.hidden = true; document.body.style.overflow = ''; el.mImg.removeAttribute('src'); state.modalId = null; }
 el.mTabs.addEventListener('click', e => {
   const b = e.target.closest('.chip'); if (!b) return;
   const it = byId.get(state.modalId), i = +b.dataset.i; state.vi.set(it.id, i);
   el.mTabs.querySelectorAll('.chip').forEach((c, k) => c.classList.toggle('on', k === i));
-  el.mWrap.classList.remove('zoom'); reload(el.mWrap, el.mImg, it.variants[i].url);
+  el.mWrap.classList.remove('zoom'); reload(el.mWrap, el.mImg, it.variants[i].url); syncLink();
   const card = el.grid.querySelector(`.card[data-id="${it.id}"]`); // синхронизируем карточку
   if (card) { card.querySelectorAll('.chip').forEach((c, k) => c.classList.toggle('on', k === i)); card.querySelector('img').src = it.variants[i].url; }
 });
@@ -118,7 +125,12 @@ $('#mRetry').addEventListener('click', () => { const it = byId.get(state.modalId
 el.mImg.addEventListener('click', () => el.mWrap.classList.toggle('zoom'));
 $('#mClose').addEventListener('click', closeModal);
 el.modal.addEventListener('click', e => { if (e.target === el.modal) closeModal(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !el.modal.hidden) closeModal(); });
+document.addEventListener('keydown', e => {
+  const typing = /INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName);
+  if (!el.modal.hidden) { if (e.key === 'Escape') closeModal(); else if (e.key === 'ArrowLeft' && !typing) step(-1); else if (e.key === 'ArrowRight' && !typing) step(1); }
+  else if (e.key === '/' && !typing) { e.preventDefault(); el.q.focus(); }
+});
+el.q.addEventListener('keydown', e => { if (e.key === 'Escape' && el.q.value) { el.q.value = ''; render(); } });
 
 /* ---------- скачивание и конвертация ---------- */
 function toast(msg, bad) {
@@ -175,15 +187,69 @@ async function download(it, v, fmt, btn) {
   } finally { btn.disabled = false; btn.textContent = label; }
 }
 
+/* ---------- удобства: избранное, навигация, ссылка, адрес страницы, тема ---------- */
+function updFav() {
+  el.fav.textContent = (state.favOnly ? '★' : '☆') + ' Избранное' + (favs.size ? ` (${favs.size})` : '');
+  el.fav.setAttribute('aria-pressed', state.favOnly);
+}
+function toggleFav(it, btn) {
+  const k = keyOf(it); favs.has(k) ? favs.delete(k) : favs.add(k);
+  try { localStorage.setItem(favKey, JSON.stringify([...favs])); } catch (_) { /* не сохранится после закрытия */ }
+  if (state.favOnly) return render();
+  const on = favs.has(k); btn.classList.toggle('on', on); btn.textContent = on ? '★' : '☆'; updFav();
+}
+function step(d) {
+  const L = state.list; if (L.length < 2) return;
+  const k = L.findIndex(x => x.id === state.modalId);
+  openModal(L[(k + d + L.length) % L.length].id);
+}
+function syncLink() { const it = byId.get(state.modalId); $('#mOpen').href = it.variants[state.vi.get(it.id) || 0].url; }
+$('#mPrev').addEventListener('click', () => step(-1));
+$('#mNext').addEventListener('click', () => step(1));
+$('#mCopy').addEventListener('click', async () => {
+  const it = byId.get(state.modalId), u = it.variants[state.vi.get(it.id) || 0].url;
+  try { await navigator.clipboard.writeText(u); }
+  catch (_) { const t = document.createElement('textarea'); t.value = u; document.body.append(t); t.select(); try { document.execCommand('copy'); } catch (__) { /* нечего делать */ } t.remove(); }
+  toast('Ссылка на файл скопирована.');
+});
+el.fav.addEventListener('click', () => { state.favOnly = !state.favOnly; render(); });
+
+const HASH = [['q', el.q], ['sec', el.sec], ['grp', el.grp], ['loc', el.loc], ['sea', el.sea], ['sort', el.sort]];
+function writeHash() { // состояние поиска и фильтров в адресе — им можно поделиться
+  const h = new URLSearchParams();
+  HASH.forEach(([k, n]) => { if (n.value && !(k === 'sort' && n.value === P.sort)) h.set(k, n.value); });
+  if (state.favOnly) h.set('fav', '1');
+  const s = h.toString();
+  try { history.replaceState(null, '', s ? '#' + s : location.pathname + location.search); } catch (_) { /* file:// в некоторых браузерах */ }
+}
+function readHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  HASH.forEach(([k, n]) => { const v = h.get(k); if (v && (n === el.q || [...n.options].some(o => o.value === v))) n.value = v; });
+  state.favOnly = h.get('fav') === '1';
+}
+
+const root = document.documentElement, themeBtn = $('#theme');
+const curTheme = () => root.dataset.theme || (matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+const paintTheme = () => { themeBtn.textContent = curTheme() === 'dark' ? '☀️ Светлая тема' : '🌙 Тёмная тема'; };
+themeBtn.addEventListener('click', () => {
+  const n = curTheme() === 'dark' ? 'light' : 'dark'; root.dataset.theme = n;
+  try { localStorage.setItem('theme', n); } catch (_) { /* тема не запомнится */ }
+  paintTheme();
+});
+const toTop = $('#toTop');
+addEventListener('scroll', () => { toTop.hidden = scrollY < 600; }, { passive: true });
+toTop.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
+
 /* ---------- запуск ---------- */
 let timer;
 el.q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(render, 120); });
 [el.sec, el.grp, el.loc, el.sea, el.sort].forEach(s => s.addEventListener('change', render));
-$('#reset').addEventListener('click', () => { el.q.value = ''; [el.sec, el.grp, el.loc, el.sea].forEach(s => { s.value = ''; }); el.sort.value = P.sort; state.vi.clear(); render(); });
+$('#reset').addEventListener('click', () => { el.q.value = ''; [el.sec, el.grp, el.loc, el.sea].forEach(s => { s.value = ''; }); el.sort.value = P.sort; state.favOnly = false; state.vi.clear(); render(); });
 
 const miss = $('#missing');
 if (missing.length) miss.innerHTML = `<summary>В таблице есть, но файла-изображения нет (${missing.length})</summary><ul>${missing.map(m => `<li>${esc(m.name)}${m.location ? ' — ' + esc(m.location) : ''} (${esc(m.reason)})${m.link ? ` <a href="${esc(m.link)}" target="_blank" rel="noopener">открыть ссылку</a>` : ''}</li>`).join('')}</ul>`;
 else miss.hidden = true;
 $('#built').textContent = `Данные таблицы от ${built}.`;
-render();
+addEventListener('hashchange', () => { readHash(); render(); }); // вставили ссылку с фильтрами в ту же вкладку
+readHash(); paintTheme(); render();
 })();

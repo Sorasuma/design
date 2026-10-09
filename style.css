@@ -1,5 +1,6 @@
-:root{--bg:#f4f6f9;--card:#fff;--ink:#1b2430;--mute:#66758a;--line:#d9e0ea;--acc:#2f6fdb;--acc-ink:#fff;--err:#c0392b}
-@media(prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b222b;--ink:#e8edf3;--mute:#93a1b4;--line:#2c3643;--acc:#5b93f0;--acc-ink:#0b1220;--err:#ff7a6b}}
+:root{--bg:#f4f6f9;--card:#fff;--ink:#1b2430;--mute:#66758a;--line:#d9e0ea;--acc:#2f6fdb;--acc-ink:#fff;--err:#c0392b;color-scheme:light}
+:root[data-theme=dark]{--bg:#12161c;--card:#1b222b;--ink:#e8edf3;--mute:#93a1b4;--line:#2c3643;--acc:#5b93f0;--acc-ink:#0b1220;--err:#ff7a6b;color-scheme:dark}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#12161c;--card:#1b222b;--ink:#e8edf3;--mute:#93a1b4;--line:#2c3643;--acc:#5b93f0;--acc-ink:#0b1220;--err:#ff7a6b;color-scheme:dark}}
 *{box-sizing:border-box}
 [hidden]{display:none!important}
 html{scroll-padding-top:150px}
@@ -68,3 +69,17 @@ main{max-width:1300px;margin:0 auto;padding:16px}
 .nav{display:flex;flex-wrap:wrap;gap:6px}
 .nav a{padding:5px 12px;border:1px solid var(--line);border-radius:99px;color:var(--ink);text-decoration:none;font-size:14px;background:var(--card)}
 .nav a.on{background:var(--acc);color:var(--acc-ink);border-color:var(--acc);font-weight:600}
+
+.bar{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+.tbtn,#favOnly{cursor:pointer}
+.tbtn{padding:5px 12px;border:1px solid var(--line);border-radius:99px;background:var(--card);font-size:14px}
+#favOnly[aria-pressed=true]{background:var(--acc);color:var(--acc-ink);border-color:var(--acc)}
+.star{position:absolute;top:6px;right:6px;z-index:2;width:34px;height:34px;border:0;border-radius:50%;background:rgba(0,0,0,.5);color:#fff;font-size:20px;line-height:1}
+.star.on{color:#ffc83d}
+.ex{display:flex;gap:6px}
+.ex button,.ex a{flex:1;padding:7px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);text-align:center;text-decoration:none;font-size:13px}
+.m-nav{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:auto}
+.m-nav button{width:44px;height:36px;border:1px solid var(--line);border-radius:8px;background:var(--card);font-size:22px;line-height:1}
+.m-nav+.hint{margin-top:0}
+#mPos{color:var(--mute);font-size:13px}
+.to-top{position:fixed;right:16px;bottom:16px;z-index:6;width:44px;height:44px;border:0;border-radius:50%;background:var(--acc);color:var(--acc-ink);font-size:22px;box-shadow:0 2px 8px #0005}

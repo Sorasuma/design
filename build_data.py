@@ -135,6 +135,25 @@ for r, row in rows(wb["Статусы Охота"], 4):
     else: add_missing(ms, name, "нет ссылок на файлы", r)
 pages["statuses"] = dict(title="Статусы охоты", sort="table", variantFilter="Любая добыча", items=st, missing=ms)
 
+# ---------- дополнения вне таблицы (tools/extra.json) ----------
+# Файлы, которых нет в таблице: вариант добавляется к существующей позиции (по page + name [+ section]) или создаётся новая.
+extra_path = os.path.join(ROOT, "tools", "extra.json")
+if os.path.exists(extra_path):
+    for ex in json.load(open(extra_path, encoding="utf-8")):
+        p = pages[ex["page"]]
+        cand = [i for i in p["items"] if i["name"] == ex["name"] and (not ex.get("section") or i["section"] == ex["section"])]
+        v = {"label": ex["label"], "url": ex["url"]}
+        if not cand:
+            p["items"].append({"name": ex["name"], "section": ex.get("section", ""), "group": ex.get("group", ""), "location": ex.get("location", ""), "authors": ex.get("authors", ""), "variants": [v]})
+            warn.append(f"extra.json: «{ex['name']}» добавлена как новая позиция")
+            continue
+        it = cand[0]
+        old = [x for x in it["variants"] if x["label"] == ex["label"]]
+        if old: warn.append(f"extra.json: у «{ex['name']}» вариант «{ex['label']}» заменён"); it["variants"].remove(old[0])
+        it["variants"].append(v)
+        it["variants"].sort(key=lambda x: ORDER.index(x["label"]) if x["label"] in ORDER else 9)
+        p["missing"] = [m for m in p["missing"] if m["name"] != ex["name"] or m.get("section") != it["section"]]
+
 # ---------- запись ----------
 for k, p in pages.items(): p["originalOnly"] = (k != "index")  # конвертация PNG/JPEG только для фонов
 for p in pages.values():
