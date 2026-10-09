@@ -27,12 +27,16 @@ function fill(sel, label, values) {
   sel.hidden = values.length < 2; // фильтр без выбора не показываем
   sel.innerHTML = `<option value="">${label}</option>` + values.map(v => `<option>${esc(v)}</option>`).join('');
 }
-fill(el.sec, 'Все разделы', uniq('section'));
-fill(el.grp, 'Вся территория', uniq('group'));
-fill(el.loc, 'Все локации', uniq('location'));
 const SEA_ORDER = ['Общий фон', 'Зима', 'Осень', 'Весна', 'Лето', '200×300', '100×150', 'Старый формат', 'Птицы', 'Зверьки', 'Рыбы'];
-const seaVals = P.variantFilter ? [...new Set(items.flatMap(i => i.variants.map(v => v.label)))].sort((a, b) => SEA_ORDER.indexOf(a) - SEA_ORDER.indexOf(b)) : [];
-fill(el.sea, P.variantFilter || '', seaVals);
+function buildFilters() { // вызывается при старте и после подгрузки новых файлов; выбранные значения сохраняются
+  const sels = [el.sec, el.grp, el.loc, el.sea], keep = sels.map(s => s.value);
+  fill(el.sec, 'Все разделы', uniq('section'));
+  fill(el.grp, 'Вся территория', uniq('group'));
+  fill(el.loc, 'Все локации', uniq('location'));
+  fill(el.sea, P.variantFilter || '', P.variantFilter ? [...new Set(items.flatMap(i => i.variants.map(v => v.label)))].sort((a, b) => SEA_ORDER.indexOf(a) - SEA_ORDER.indexOf(b)) : []);
+  sels.forEach((s, i) => { if ([...s.options].some(o => o.value === keep[i])) s.value = keep[i]; });
+}
+buildFilters();
 el.sort.value = P.sort;
 const fmtOptions = Object.entries(FORMATS).filter(([k]) => !P.originalOnly || k === 'orig').map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
 el.mFmt.innerHTML = fmtOptions; el.mFmt.hidden = !!P.originalOnly;
@@ -240,6 +244,49 @@ const toTop = $('#toTop');
 addEventListener('scroll', () => { toTop.hidden = scrollY < 600; }, { passive: true });
 toTop.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
 
+/* ---------- автоподгрузка новых фонов из папки dop (GitHub API, один запрос, кэш на 10 минут) ---------- */
+const DOP_RE = /^(.*?)[_\s-]+(зима|осень|весна|лето|общий[_\s-]?фон|общий)$/i;
+const dopKey = s => norm(s).replace(/[\s_-]+/g, '');
+const dec = u => { try { return decodeURIComponent(u).toLowerCase(); } catch (_) { return u.toLowerCase(); } };
+async function dopFiles(S) {
+  const api = `https://api.github.com/repos/${S.owner}/${S.repo}/contents/${S.path}?ref=${S.branch}`, ck = 'dop:' + api;
+  let cached = null; try { cached = JSON.parse(localStorage.getItem(ck) || 'null'); } catch (_) { /* нет хранилища */ }
+  if (cached && Date.now() - cached.t < 6e5) return cached.f;
+  try {
+    const r = await fetch(api, { headers: { Accept: 'application/vnd.github+json' } });
+    if (r.status === 404) return [];
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const f = (await r.json()).filter(x => x.type === 'file' && /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(x.name)).map(x => ({ name: x.name, url: x.download_url }));
+    try { localStorage.setItem(ck, JSON.stringify({ t: Date.now(), f })); } catch (_) { /* не критично */ }
+    return f;
+  } catch (err) {
+    toast(cached ? 'Не удалось проверить новые файлы в папке — показаны сохранённые ранее.' : 'Не удалось проверить новые файлы в папке (возможно, лимит запросов GitHub). Основной каталог работает.', true);
+    return cached ? cached.f : [];
+  }
+}
+async function loadDop() {
+  const S = window.DOP_SOURCE; if (!S || document.body.dataset.page !== 'index') return;
+  const files = await dopFiles(S); if (!files.length) return;
+  const have = new Set(items.flatMap(i => i.variants.map(v => dec(v.url))));
+  const fresh = new Map(); let added = 0;
+  for (const f of files) {
+    if (have.has(dec(f.url))) continue; // этот файл уже есть в каталоге (таблица или extra.json)
+    const base = f.name.replace(/\.[^.]+$/, ''), m = base.match(DOP_RE);
+    const name = (m ? m[1] : base).replace(/_+/g, ' ').trim(), label = m ? (/общий/i.test(m[2]) ? 'Общий фон' : m[2][0].toUpperCase() + m[2].slice(1).toLowerCase()) : 'Общий фон';
+    const k = dopKey(name); if (!k) continue;
+    let it = items.find(i => i.section === 'Актуальные' && dopKey(i.name) === k) || fresh.get(k);
+    if (!it) {
+      it = { id: Math.max(...items.map(i => i.id)) + 1, name, section: 'Актуальные', group: '', location: 'Новые фоны', authors: '', variants: [] };
+      items.push(it); byId.set(it.id, it); fresh.set(k, it);
+    }
+    if (it.variants.some(v => v.label === label)) continue; // существующие варианты не перезаписываем
+    it.variants.push({ label, url: f.url }); added++;
+    it.variants.sort((a, b) => SEA_ORDER.indexOf(a.label) - SEA_ORDER.indexOf(b.label));
+    it._s = norm([it.name, it.location, it.group, it.authors, it.section].join(' '));
+  }
+  if (added) { buildFilters(); render(); }
+}
+
 /* ---------- запуск ---------- */
 let timer;
 el.q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(render, 120); });
@@ -251,5 +298,5 @@ if (missing.length) miss.innerHTML = `<summary>В таблице есть, но 
 else miss.hidden = true;
 $('#built').textContent = `Данные таблицы от ${built}.`;
 addEventListener('hashchange', () => { readHash(); render(); }); // вставили ссылку с фильтрами в ту же вкладку
-readHash(); paintTheme(); render();
+readHash(); paintTheme(); render(); loadDop();
 })();

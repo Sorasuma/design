@@ -638,7 +638,7 @@ window.PAGES = {
      },
      {
       "label": "Осень",
-      "url": "https://raw.githubusercontent.com/NorthernClanAchievements/Design_Archive/refs/heads/main/dop/sklon1.jpg"
+      "url": "https://raw.githubusercontent.com/Sorasuma/design/main/dop/sklon1.jpg"
      },
      {
       "label": "Лето",
