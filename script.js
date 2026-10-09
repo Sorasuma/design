@@ -1,6 +1,7 @@
 (() => {
 'use strict';
-const { items, missing, built } = window.CATALOG;
+const P = window.PAGES[document.body.dataset.page], built = window.PAGES_BUILT;
+const { items, missing } = P;
 const $ = s => document.querySelector(s);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const norm = s => String(s).toLowerCase().replace(/ё/g, 'е');
@@ -20,12 +21,16 @@ const el = { q: $('#q'), sec: $('#fSection'), grp: $('#fGroup'), loc: $('#fLoc')
 /* ---------- фильтры ---------- */
 const uniq = key => [...new Set(items.map(i => i[key]).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ru'));
 function fill(sel, label, values) {
+  sel.hidden = values.length < 2; // фильтр без выбора не показываем
   sel.innerHTML = `<option value="">${label}</option>` + values.map(v => `<option>${esc(v)}</option>`).join('');
 }
 fill(el.sec, 'Все разделы', uniq('section'));
 fill(el.grp, 'Вся территория', uniq('group'));
 fill(el.loc, 'Все локации', uniq('location'));
-fill(el.sea, 'Любой сезон', ['Общий фон', 'Зима', 'Осень', 'Весна', 'Лето']);
+const SEA_ORDER = ['Общий фон', 'Зима', 'Осень', 'Весна', 'Лето', '200×300', '100×150', 'Старый формат', 'Птицы', 'Зверьки', 'Рыбы'];
+const seaVals = P.variantFilter ? [...new Set(items.flatMap(i => i.variants.map(v => v.label)))].sort((a, b) => SEA_ORDER.indexOf(a) - SEA_ORDER.indexOf(b)) : [];
+fill(el.sea, P.variantFilter || '', seaVals);
+el.sort.value = P.sort;
 const fmtOptions = Object.entries(FORMATS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('');
 el.mFmt.innerHTML = fmtOptions;
 
@@ -35,6 +40,7 @@ function filtered() {
   const list = items.filter(i =>
     (!sec || i.section === sec) && (!grp || i.group === grp) && (!loc || i.location === loc) &&
     (!sea || i.variants.some(v => v.label === sea)) && words.every(w => i._s.includes(w)));
+  if (el.sort.value === 'table') return list.sort((a, b) => a.id - b.id);
   const dir = el.sort.value === 'za' ? -1 : 1;
   return list.sort((a, b) => dir * a.name.localeCompare(b.name, 'ru'));
 }
@@ -44,7 +50,7 @@ function cardHtml(it) {
   const vi = state.vi.get(it.id) || 0, v = it.variants[vi];
   const chips = it.variants.length > 1
     ? `<div class="chips">${it.variants.map((x, i) => `<button type="button" class="chip${i === vi ? ' on' : ''}" data-act="season" data-i="${i}">${esc(x.label)}</button>`).join('')}</div>` : '';
-  const meta = [it.section === 'Архив старых' ? 'Архив' : it.location, it.variants.length === 1 && v.label !== 'Общий фон' ? v.label : ''].filter(Boolean).join(' · ');
+  const meta = [it.section === 'Архив старых' ? 'Архив' : (it.location || it.group), it.variants.length === 1 && v.label && v.label !== 'Общий фон' ? v.label : ''].filter(Boolean).join(' · ');
   return `<article class="card" data-id="${it.id}">
     <div class="thumb loading" data-act="open" role="button" tabindex="0" aria-label="Открыть: ${esc(it.name)}">
       <span class="spin"></span><img loading="lazy" decoding="async" alt="${esc(it.name)}" src="${esc(v.url)}">
@@ -119,7 +125,7 @@ function toast(msg, bad) {
   el.toast.textContent = msg; el.toast.className = 'toast' + (bad ? ' bad' : ''); el.toast.hidden = false;
   clearTimeout(toast.t); toast.t = setTimeout(() => { el.toast.hidden = true; }, bad ? 7000 : 4000);
 }
-const safeName = s => s.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim();
+const safeName = s => s.replace(/[\\/:*?"<>|\u0000-\u001f]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120).replace(/[. ]+$/, '');
 const baseName = (it, v) => safeName(it.name + (it.variants.length > 1 ? ' — ' + v.label.toLowerCase() : '') + (it.section === 'Архив старых' ? ' (старый)' : ''));
 function save(blob, filename) {
   const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = filename;
@@ -162,7 +168,8 @@ async function download(it, v, fmt, btn) {
     try {
       const { blob: out, resized } = await convert(blob, MIME[fmt]);
       save(out, `${name}.${fmt === 'jpeg' ? 'jpg' : 'png'}`);
-      if (resized) toast('Браузер не смог обработать полный размер — файл сохранён в уменьшенном разрешении.', true);
+      if (mime === 'image/gif') toast('Анимация GIF сохраняется только в оригинале — в PNG/JPEG попал первый кадр.');
+      else if (resized) toast('Браузер не смог обработать полный размер — файл сохранён в уменьшенном разрешении.', true);
     } catch (err) { toast('Не удалось преобразовать изображение в этом браузере. Скачайте оригинал.', true); }
   } finally { btn.disabled = false; btn.textContent = label; }
 }
@@ -171,10 +178,10 @@ async function download(it, v, fmt, btn) {
 let timer;
 el.q.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(render, 120); });
 [el.sec, el.grp, el.loc, el.sea, el.sort].forEach(s => s.addEventListener('change', render));
-$('#reset').addEventListener('click', () => { el.q.value = ''; [el.sec, el.grp, el.loc, el.sea].forEach(s => { s.value = ''; }); el.sort.value = 'az'; state.vi.clear(); render(); });
+$('#reset').addEventListener('click', () => { el.q.value = ''; [el.sec, el.grp, el.loc, el.sea].forEach(s => { s.value = ''; }); el.sort.value = P.sort; state.vi.clear(); render(); });
 
 const miss = $('#missing');
-if (missing.length) miss.innerHTML = `<summary>В таблице есть, но файла пока нет (${missing.length})</summary><ul>${missing.map(m => `<li>${esc(m.name)}${m.location ? ' — ' + esc(m.location) : ''} (${esc(m.reason)})</li>`).join('')}</ul>`;
+if (missing.length) miss.innerHTML = `<summary>В таблице есть, но файла-изображения нет (${missing.length})</summary><ul>${missing.map(m => `<li>${esc(m.name)}${m.location ? ' — ' + esc(m.location) : ''} (${esc(m.reason)})${m.link ? ` <a href="${esc(m.link)}" target="_blank" rel="noopener">открыть ссылку</a>` : ''}</li>`).join('')}</ul>`;
 else miss.hidden = true;
 $('#built').textContent = `Данные таблицы от ${built}.`;
 render();
