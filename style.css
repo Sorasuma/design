@@ -83,3 +83,4 @@ main{max-width:1300px;margin:0 auto;padding:16px}
 .m-nav+.hint{margin-top:0}
 #mPos{color:var(--mute);font-size:13px}
 .to-top{position:fixed;right:16px;bottom:16px;z-index:6;width:44px;height:44px;border:0;border-radius:50%;background:var(--acc);color:var(--acc-ink);font-size:22px;box-shadow:0 2px 8px #0005}
+.dop-info{margin-top:6px}.dop-info a{color:var(--acc)}
