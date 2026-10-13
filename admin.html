@@ -34,6 +34,16 @@
       </ol>
       <p class="meta">Токен хранится только в вашем браузере и отправляется только на api.github.com. Саму страницу может открыть любой, но без токена загрузить ничего нельзя.</p>
     </details>
+    <details>
+      <summary>Пишет «нет права записи» — что делать</summary>
+      <ol>
+        <li><b>Вы не владелец репозитория</b> (вы участник с правом записи). Fine-grained токен для чужого репозитория не работает. Создайте <b>классический</b> токен: Settings → Developer settings → Personal access tokens → <b>Tokens (classic)</b> → Generate new token (classic) → галочка <b>public_repo</b> (для приватного репозитория — <b>repo</b>).</li>
+        <li>Fine-grained токен выдан <b>не на тот репозиторий</b> или без <b>Contents: Read and write</b>: откройте токен на GitHub → Edit → проверьте Repository access и Permissions → сохраните (новый токен копировать не нужно).</li>
+        <li>У токена выбран другой <b>Resource owner</b> (ваш аккаунт вместо владельца репозитория).</li>
+        <li>Ветка называется не так, как в <code>config.js</code> (там сейчас <code>main</code>) — исправьте <code>branch</code>.</li>
+      </ol>
+      <p class="meta">После исправления нажмите «Проверить доступ» и повторите загрузку. Ответ GitHub выводится рядом с ошибкой — он подсказывает причину.</p>
+    </details>
   </section>
 
   <section class="panel">

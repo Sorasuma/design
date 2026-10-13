@@ -21,20 +21,24 @@ function saveToken() {
 const setSt = (sel, msg, bad) => { const e = $(sel); e.textContent = msg; e.className = 'st ' + (bad === undefined ? '' : bad ? 'bad' : 'ok'); };
 
 const base = `https://api.github.com/repos/${S.owner}/${S.repo}`;
-const api = (p, o = {}) => fetch(base + p, { ...o, headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: 'Bearer ' + token, ...(o.body ? { 'Content-Type': 'application/json' } : {}) } });
+const api = (p, o = {}) => fetch((p.startsWith('http') ? '' : base) + p, { ...o, headers: { Accept: 'application/vnd.github+json', 'X-GitHub-Api-Version': '2022-11-28', Authorization: 'Bearer ' + token, ...(o.body ? { 'Content-Type': 'application/json' } : {}) } });
 async function errMsg(r) {
   let m = ''; try { m = (await r.json()).message || ''; } catch (_) { /* не JSON */ }
-  if (r.status === 401) return 'токен не подходит или истёк';
-  if (r.status === 403 || r.status === 404) return `нет права записи: токен должен быть выдан на репозиторий «${S.repo}» с разрешением Contents: Read and write`;
+  if (r.status === 401) return `токен не подходит или истёк (GitHub: «${m || 401}»)`;
+  if (r.status === 403 || r.status === 404) return `нет права записи — GitHub ответил «${m || r.status}». Частые причины: токен выдан не на этот репозиторий или без Contents: Read and write; вы не владелец репозитория «${S.owner}/${S.repo}» (тогда нужен классический токен со scope public_repo); ветки «${S.branch}» не существует.`;
   return `ошибка GitHub ${r.status}${m ? ': ' + m : ''}`;
 }
 async function checkAccess() {
   saveToken(); if (!token) { setSt('#authStatus', 'Введите токен.', true); return false; }
   try {
     const r = await api(''); if (!r.ok) { setSt('#authStatus', 'Нет доступа: ' + await errMsg(r), true); return false; }
-    const j = await r.json(), ok = !j.permissions || j.permissions.push;
-    setSt('#authStatus', ok ? `Доступ есть: ${j.full_name}` : 'Токен может только читать репозиторий — нужно право Contents: Read and write.', !ok);
-    return ok;
+    const j = await r.json(), scopes = r.headers.get('x-oauth-scopes'); // заголовок есть только у классических токенов
+    let who = ''; try { const ur = await api('https://api.github.com/user'); if (ur.ok) who = (await ur.json()).login || ''; } catch (_) { /* не критично */ }
+    if (scopes !== null && !/(^|,\s*)(repo|public_repo)(,|$)/.test(scopes)) { setSt('#authStatus', `У классического токена нет разрешения public_repo (сейчас: ${scopes || 'пусто'}). Создайте токен с галочкой public_repo.`, true); return false; }
+    if (j.permissions && !j.permissions.push) { setSt('#authStatus', 'Токен может только читать репозиторий — нужно право записи (Contents: Read and write).', true); return false; }
+    const other = who && who.toLowerCase() !== S.owner.toLowerCase();
+    setSt('#authStatus', `Доступ есть: ${j.full_name}${who ? `, вы вошли как ${who}` : ''}.` + (other ? ` Вы не владелец репозитория: если загрузка не пройдёт, используйте классический токен со scope public_repo — fine-grained токены не работают с чужими репозиториями.` : ''), false);
+    return true;
   } catch (_) { setSt('#authStatus', 'Нет связи с GitHub.', true); return false; }
 }
 $('#check').addEventListener('click', async () => { if (await checkAccess()) loadList(); });
