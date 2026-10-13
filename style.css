@@ -84,3 +84,25 @@ main{max-width:1300px;margin:0 auto;padding:16px}
 #mPos{color:var(--mute);font-size:13px}
 .to-top{position:fixed;right:16px;bottom:16px;z-index:6;width:44px;height:44px;border:0;border-radius:50%;background:var(--acc);color:var(--acc-ink);font-size:22px;box-shadow:0 2px 8px #0005}
 .dop-info{margin-top:6px}.dop-info a{color:var(--acc)}
+.admin{max-width:900px;margin:0 auto;padding:16px;display:grid;gap:16px}
+.admin h1{margin:0}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px}
+.panel h2{margin:0 0 10px;font-size:17px}
+.line{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.panel input[type=password],.panel input[type=text]{flex:1 1 220px;min-width:0;padding:9px 11px;border:1px solid var(--line);border-radius:8px;background:var(--bg)}
+.btn{padding:8px 14px;border:1px solid var(--acc);background:var(--acc);color:var(--acc-ink);border-radius:8px;font-weight:600;cursor:pointer}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn.ghost{background:var(--card);color:var(--ink);border-color:var(--line);font-weight:400}
+.chk{display:block;margin:8px 0;color:var(--mute);font-size:13px}
+.st{font-size:13px;margin-top:4px}.st.ok{color:#2e9e57}.st.bad{color:var(--err)}
+.drop{border:2px dashed var(--line);border-radius:12px;padding:24px;text-align:center;color:var(--mute);cursor:pointer}
+.drop.over,.drop:focus-visible{border-color:var(--acc);color:var(--ink)}
+.urow{display:flex;gap:10px;align-items:flex-start;padding:10px 0;border-top:1px solid var(--line)}
+.pv{width:96px;height:64px;object-fit:cover;border-radius:6px;background:var(--line);flex:none}
+.rf{flex:1;display:grid;gap:4px;min-width:0}
+.fn{font-size:12.5px;color:var(--mute);word-break:break-all}
+.flist{list-style:none;margin:10px 0 0;padding:0;display:grid;gap:6px}
+.flist li{display:flex;gap:8px;align-items:center;flex-wrap:wrap;word-break:break-all}
+.flist .btn{padding:3px 10px;font-size:12.5px}
+.admin details{margin-top:8px}.admin details ol{margin:8px 0;padding-left:20px;line-height:1.55}
+.admin a{color:var(--acc)}

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Администратор — Design Archive</title>
+<script>try{var th=localStorage.getItem("theme");if(th)document.documentElement.dataset.theme=th}catch(e){}</script>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<main class="admin">
+  <p><a href="index.html">← К каталогу</a></p>
+  <h1>Режим администратора</h1>
+  <p class="meta">Загруженные здесь изображения сохраняются в <b id="target"></b> и сразу доступны всем посетителям каталога (в течение пары минут).</p>
+
+  <section class="panel">
+    <h2>1. Доступ</h2>
+    <div class="line">
+      <input id="token" type="password" placeholder="Токен GitHub (github_pat_…)" autocomplete="off" aria-label="Токен GitHub">
+      <button id="check" class="btn" type="button">Проверить доступ</button>
+      <button id="logout" class="btn ghost" type="button">Выйти</button>
+    </div>
+    <label class="chk"><input id="remember" type="checkbox"> запомнить на этом устройстве (иначе токен забудется при закрытии вкладки)</label>
+    <div id="authStatus" class="st"></div>
+    <details>
+      <summary>Как получить токен</summary>
+      <ol>
+        <li>Войдите на GitHub под аккаунтом, у которого есть право записи в репозиторий (владелец или участник).</li>
+        <li>Settings → Developer settings → Personal access tokens → <b>Fine-grained tokens</b> → Generate new token.</li>
+        <li>Repository access: <b>Only select repositories</b> → выберите репозиторий с папкой фонов.</li>
+        <li>Permissions → Repository permissions → <b>Contents: Read and write</b>. Больше ничего не нужно.</li>
+        <li>Срок действия — например, 90 дней. Скопируйте токен и вставьте выше. Никому его не отправляйте.</li>
+      </ol>
+      <p class="meta">Токен хранится только в вашем браузере и отправляется только на api.github.com. Саму страницу может открыть любой, но без токена загрузить ничего нельзя.</p>
+    </details>
+  </section>
+
+  <section class="panel">
+    <h2>2. Загрузка</h2>
+    <div id="drop" class="drop" tabindex="0" role="button">Перетащите изображения сюда или нажмите, чтобы выбрать<input id="files" type="file" accept="image/*" multiple hidden></div>
+    <datalist id="names"></datalist>
+    <div id="rows"></div>
+    <div class="line" style="margin-top:10px"><button id="upload" class="btn" type="button" disabled>Загрузить</button><span id="upStatus" class="st"></span></div>
+  </section>
+
+  <section class="panel">
+    <h2>3. Файлы в папке</h2>
+    <div class="line"><button id="reload" class="btn ghost" type="button">Обновить список</button></div>
+    <ul id="flist" class="flist"></ul>
+  </section>
+</main>
+<div id="toast" class="toast" hidden></div>
+<script src="config.js"></script>
+<script src="data.js"></script>
+<script src="admin.js"></script>
+</body>
+</html>
