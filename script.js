@@ -61,7 +61,7 @@ function cardHtml(it) {
   return `<article class="card" data-id="${it.id}">
     <div class="thumb loading" data-act="open" role="button" tabindex="0" aria-label="Открыть: ${esc(it.name)}">
       <button type="button" class="star${favs.has(keyOf(it)) ? ' on' : ''}" data-act="fav" aria-label="В избранное">${favs.has(keyOf(it)) ? '★' : '☆'}</button><span class="spin"></span><img loading="lazy" decoding="async" alt="${esc(it.name)}" src="${esc(v.url)}">
-      <div class="err">Файл недоступен<br><button type="button" data-act="retry">Повторить</button></div>
+      <div class="err">Файл недоступен<br><button type="button" data-act="retry">Повторить</button><a class="errlink" target="_blank" rel="noopener">открыть ссылку</a></div>
     </div>
     <div class="body"><h3>${esc(it.name)}</h3><p class="meta">${esc(meta)}</p>${chips}
       <div class="dl-row"><select class="fmt" aria-label="Формат скачивания"${P.originalOnly ? ' hidden' : ''}>${fmtOptions}</select>
@@ -85,7 +85,7 @@ function reload(wrap, img, url) { // перезапуск загрузки ка�
 }
 // load/error не всплывают — слушаем в фазе перехвата
 document.addEventListener('load', e => { const w = e.target.closest && e.target.closest('.thumb,.m-img'); if (w && e.target.tagName === 'IMG') w.classList.remove('loading', 'failed'); }, true);
-document.addEventListener('error', e => { const w = e.target.closest && e.target.closest('.thumb,.m-img'); if (w && e.target.tagName === 'IMG' && e.target.getAttribute('src')) { w.classList.remove('loading'); w.classList.add('failed'); } }, true);
+document.addEventListener('error', e => { const w = e.target.closest && e.target.closest('.thumb,.m-img'); if (w && e.target.tagName === 'IMG' && e.target.getAttribute('src')) { w.classList.remove('loading'); w.classList.add('failed'); const a = w.querySelector('.errlink'); if (a) a.href = e.target.src; } }, true);
 
 el.grid.addEventListener('change', e => { if (e.target.classList.contains('fmt')) state.fmt = e.target.value; });
 el.grid.addEventListener('click', e => {
@@ -270,7 +270,7 @@ async function loadDop() {
   const info = document.createElement('div'); info.className = 'dop-info'; $('.foot').append(info);
   const files = await dopFiles(S);
   const refresh = ' <a href="#" id="dopRefresh">Проверить заново</a>';
-  info.innerHTML = (files === null ? 'Папка с новыми фонами не прочитана.' : `Из папки новых фонов подхвачено файлов: ${files.length}.`) + refresh;
+  info.innerHTML = (files === null ? 'Папка с новыми фонами не прочитана.' : `Из папки новых фонов подхвачено файлов: ${files.length}.` + (files.length ? '' : ' (папка пуста, не найдена или репозиторий приватный)')) + refresh;
   $('#dopRefresh').addEventListener('click', e => { e.preventDefault(); try { Object.keys(localStorage).filter(k => k.startsWith(DOP_CACHE)).forEach(k => localStorage.removeItem(k)); } catch (_) { /* ничего */ } location.reload(); });
   if (!files || !files.length) return;
   const have = new Set(items.flatMap(i => i.variants.map(v => dec(v.url))));

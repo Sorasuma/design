@@ -37,7 +37,7 @@ async function checkAccess() {
     if (scopes !== null && !/(^|,\s*)(repo|public_repo)(,|$)/.test(scopes)) { setSt('#authStatus', `У классического токена нет разрешения public_repo (сейчас: ${scopes || 'пусто'}). Создайте токен с галочкой public_repo.`, true); return false; }
     if (j.permissions && !j.permissions.push) { setSt('#authStatus', 'Токен может только читать репозиторий — нужно право записи (Contents: Read and write).', true); return false; }
     const other = who && who.toLowerCase() !== S.owner.toLowerCase();
-    setSt('#authStatus', `Доступ есть: ${j.full_name}${who ? `, вы вошли как ${who}` : ''}.` + (other ? ` Вы не владелец репозитория: если загрузка не пройдёт, используйте классический токен со scope public_repo — fine-grained токены не работают с чужими репозиториями.` : ''), false);
+    setSt('#authStatus', `Доступ есть: ${j.full_name}${who ? `, вы вошли как ${who}` : ''}.` + (j.private ? ' ⚠ Репозиторий приватный: посетители сайта не смогут увидеть изображения — сделайте его публичным (Settings → General → Danger Zone → Change visibility).' : '') + (other ? ` Вы не владелец репозитория: если загрузка не пройдёт, используйте классический токен со scope public_repo — fine-grained токены не работают с чужими репозиториями.` : ''), !!j.private);
     return true;
   } catch (_) { setSt('#authStatus', 'Нет связи с GitHub.', true); return false; }
 }
@@ -85,6 +85,8 @@ $('#drop').addEventListener('drop', e => addFiles(e.dataTransfer.files));
 const b64 = f => new Promise((ok, no) => { const fr = new FileReader(); fr.onload = () => ok(String(fr.result).split(',')[1]); fr.onerror = no; fr.readAsDataURL(f); });
 const url = n => `/contents/${S.path}/${encodeURIComponent(n)}`;
 let current = [];
+const probe = u => new Promise(ok => { const im = new Image(); im.onload = () => ok(true); im.onerror = () => ok(false); im.src = u + '?check=' + Date.now(); });
+async function visible(u) { for (let i = 0; i < 3; i++) { if (await probe(u)) return true; await new Promise(r => setTimeout(r, 1500)); } return false; }
 async function uploadRow(r) {
   const g = await api(url(r.filename) + '?ref=' + encodeURIComponent(S.branch));
   let sha; if (g.ok) sha = (await g.json()).sha; else if (g.status !== 404) throw new Error(await errMsg(g));
@@ -93,7 +95,10 @@ async function uploadRow(r) {
   // старый файл с тем же названием и сезоном, но другим расширением, удаляем — иначе будет два варианта одного сезона
   const old = current.filter(c => stem(c.name) === stem(r.filename) && c.name.toLowerCase() !== r.filename.toLowerCase());
   for (const o of old) await api(url(o.name), { method: 'DELETE', body: JSON.stringify({ message: `Удалён старый файл: ${o.name}`, sha: o.sha, branch: S.branch }) });
-  return (sha ? 'заменён' : 'загружен') + (old.length ? ` (старый ${old.map(o => o.name.split('.').pop()).join(', ')} удалён)` : '');
+  const done = (sha ? 'заменён' : 'загружен') + (old.length ? ` (старый ${old.map(o => o.name.split('.').pop()).join(', ')} удалён)` : '');
+  // проверяем, что файл открывается по публичной ссылке (как его увидят посетители сайта, без токена)
+  const pub = `https://raw.githubusercontent.com/${S.owner}/${S.repo}/${S.branch}/${S.path}/${encodeURIComponent(r.filename)}`;
+  return await visible(pub) ? { msg: done + ' и открывается по публичной ссылке' } : { warn: true, msg: done + ', но по публичной ссылке не открывается: репозиторий приватный или неверно указаны ветка/папка в config.js. Подождите минуту и проверьте ссылку: ' + pub };
 }
 $('#upload').addEventListener('click', async () => {
   if (!(await checkAccess())) return;
@@ -101,7 +106,7 @@ $('#upload').addEventListener('click', async () => {
   $('#upload').disabled = true; let ok = 0;
   for (const r of rows.slice()) {
     const st = r.el.querySelector('.st'); st.className = 'st'; st.textContent = 'загрузка…';
-    try { st.textContent = '✓ ' + await uploadRow(r); st.className = 'st ok'; ok++; } catch (err) { st.textContent = '✗ ' + err.message; st.className = 'st bad'; }
+    try { const res = await uploadRow(r); st.textContent = (res.warn ? '⚠ ' : '✓ ') + res.msg; st.className = 'st ' + (res.warn ? 'bad' : 'ok'); ok++; } catch (err) { st.textContent = '✗ ' + err.message; st.className = 'st bad'; }
   }
   setSt('#upStatus', ok ? `Готово: ${ok} из ${rows.length}. На сайте изменения появятся в течение пары минут (на каталоге можно нажать «Проверить заново» внизу страницы).` : 'Ничего не загружено.', !ok);
   refreshBtn(); loadList();

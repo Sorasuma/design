@@ -106,3 +106,4 @@ main{max-width:1300px;margin:0 auto;padding:16px}
 .flist .btn{padding:3px 10px;font-size:12.5px}
 .admin details{margin-top:8px}.admin details ol{margin:8px 0;padding-left:20px;line-height:1.55}
 .admin a{color:var(--acc)}
+.err a{color:inherit;font-size:12px;text-decoration:underline}
