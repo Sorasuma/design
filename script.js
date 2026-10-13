@@ -244,11 +244,21 @@ const toTop = $('#toTop');
 addEventListener('scroll', () => { toTop.hidden = scrollY < 600; }, { passive: true });
 toTop.addEventListener('click', () => scrollTo({ top: 0, behavior: 'smooth' }));
 
-/* ---------- автоподгрузка фонов из папки dop (GitHub API, один запрос, кэш на 3 минуты) ---------- */
-const DOP_RE = /^(.*?)[_\s-]+(зима|осень|весна|лето|общий[_\s-]?фон|общий)$/i;
-const dopKey = s => norm(s).replace(/[\s_-]+/g, '');
-const dec = u => { try { return decodeURIComponent(u).toLowerCase().split('?')[0]; } catch (_) { return u.toLowerCase().split('?')[0]; } };
+/* ---------- данные из репозитория: catalog.json (главный источник) или папка с файлами (запасной вариант) ---------- */
 const DOP_CACHE = 'dop2:';
+async function remoteCatalog(S) {
+  try {
+    const r = await fetch(DopLib.catalogUrl(S) + '?t=' + Math.floor(Date.now() / 6e4)); // ?t — чтобы не держался кэш CDN дольше минуты
+    if (!r.ok) return null;
+    const j = await r.json(); return Array.isArray(j.items) && j.items.length ? j : null;
+  } catch (_) { return null; }
+}
+function applyCatalog(cat) {
+  items.splice(0, items.length, ...cat.items.map((x, n) => ({ group: '', location: '', authors: '', section: '', ...x, id: n + 1 })));
+  items.forEach(i => { i._s = norm([i.name, i.location, i.group, i.authors, i.section].join(' ')); });
+  byId.clear(); items.forEach(i => byId.set(i.id, i)); state.vi.clear();
+  buildFilters(); render();
+}
 async function dopFiles(S) {
   const api = `https://api.github.com/repos/${S.owner}/${S.repo}/contents/${S.path}?ref=${S.branch}`, ck = DOP_CACHE + api;
   let cached = null; try { cached = JSON.parse(localStorage.getItem(ck) || 'null'); } catch (_) { /* нет хранилища */ }
@@ -266,35 +276,23 @@ async function dopFiles(S) {
   }
 }
 async function loadDop() {
-  const S = window.DOP_SOURCE; if (!S || document.body.dataset.page !== 'index') return;
+  if (document.body.dataset.page !== 'index') return;
   const info = document.createElement('div'); info.className = 'dop-info'; $('.foot').append(info);
+  if (!window.DopLib) { info.textContent = 'Не загружен файл lib.js — загрузите в репозиторий сайта ВСЕ файлы из архива.'; return; }
+  const S = DopLib.source();
+  const done = txt => {
+    info.innerHTML = esc(`${txt} Версия сайта: ${DopLib.VERSION}.`) + ' <a href="#" id="dopRefresh">Проверить заново</a>';
+    $('#dopRefresh').addEventListener('click', e => { e.preventDefault(); try { Object.keys(localStorage).filter(k => k.startsWith(DOP_CACHE)).forEach(k => localStorage.removeItem(k)); } catch (_) { /* ничего */ } location.reload(); });
+  };
+  const cat = await remoteCatalog(S);
+  if (cat) { applyCatalog(cat); return done(`Данные взяты из catalog.json (${cat.items.length} фонов).`); }
   const files = await dopFiles(S);
-  const refresh = ' <a href="#" id="dopRefresh">Проверить заново</a>';
-  info.innerHTML = (files === null ? 'Папка с новыми фонами не прочитана.' : `Из папки новых фонов подхвачено файлов: ${files.length}.` + (files.length ? '' : ' (папка пуста, не найдена или репозиторий приватный)')) + refresh;
-  $('#dopRefresh').addEventListener('click', e => { e.preventDefault(); try { Object.keys(localStorage).filter(k => k.startsWith(DOP_CACHE)).forEach(k => localStorage.removeItem(k)); } catch (_) { /* ничего */ } location.reload(); });
+  done((files === null ? 'Папка с новыми фонами не прочитана.' : `catalog.json не найден; из папки подхвачено файлов: ${files.length}.`) + (files && !files.length ? ' (папка пуста, не найдена или репозиторий приватный)' : ''));
   if (!files || !files.length) return;
-  const have = new Set(items.flatMap(i => i.variants.map(v => dec(v.url))));
-  const fresh = new Map(), touched = new Map(); let changed = 0;
-  for (const f of files) {
-    if (have.has(dec(f.url))) continue; // этот файл уже есть в каталоге (таблица или extra.json)
-    const base = f.name.replace(/\.[^.]+$/, ''), m = base.match(DOP_RE);
-    const name = (m ? m[1] : base).replace(/_+/g, ' ').trim(), label = m ? (/общий/i.test(m[2]) ? 'Общий фон' : m[2][0].toUpperCase() + m[2].slice(1).toLowerCase()) : 'Общий фон';
-    const k = dopKey(name); if (!k) continue;
-    let it = items.find(i => i.section === 'Актуальные' && dopKey(i.name) === k) || fresh.get(k);
-    if (!it) {
-      it = { id: Math.max(...items.map(i => i.id)) + 1, name, section: 'Актуальные', group: '', location: 'Новые фоны', authors: '', variants: [] };
-      items.push(it); byId.set(it.id, it); fresh.set(k, it);
-    }
-    const url = f.url + (f.sha ? '?v=' + f.sha.slice(0, 7) : ''); // версия файла — чтобы замена с тем же именем сразу показывалась
-    if (label !== 'Общий фон' && !touched.has(it) && it.variants.length === 1 && it.variants[0].label === 'Общий фон') it.variants.length = 0; // у фона был один «общий фон» — сезонный файл из папки заменяет его
-    const old = it.variants.find(v => v.label === label);
-    if (old) old.url = url; // файл из папки заменяет вариант с тем же сезоном
-    else { it.variants.push({ label, url }); it.variants.sort((a, b) => SEA_ORDER.indexOf(a.label) - SEA_ORDER.indexOf(b.label)); }
-    it._s = norm([it.name, it.location, it.group, it.authors, it.section].join(' '));
-    touched.set(it, label); changed++;
-  }
-  touched.forEach((label, it) => state.vi.set(it.id, it.variants.findIndex(v => v.label === label))); // на карточке сразу показываем обновлённый вариант
-  if (changed) { buildFilters(); render(); }
+  const touched = DopLib.merge(items, files);
+  items.forEach(i => { if (!byId.has(i.id)) byId.set(i.id, i); });
+  touched.forEach((label, it) => { it._s = norm([it.name, it.location, it.group, it.authors, it.section].join(' ')); state.vi.set(it.id, it.variants.findIndex(v => v.label === label)); });
+  if (touched.size) { buildFilters(); render(); }
 }
 
 /* ---------- запуск ---------- */

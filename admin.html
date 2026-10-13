@@ -55,13 +55,22 @@
   </section>
 
   <section class="panel">
-    <h2>3. Файлы в папке</h2>
+    <h2>3. Каталог</h2>
+    <p class="meta">Главный источник данных сайта — файл <b>catalog.json</b> в папке. Загрузка и удаление ниже сами обновляют его; таблица нужна только для первого заполнения.</p>
+    <div id="catStatus" class="st"></div>
+    <div class="line"><button id="catSave" class="btn" type="button" hidden>Сохранить каталог на GitHub</button><input id="catQ" type="text" placeholder="Найти фон в каталоге…" aria-label="Поиск по каталогу"></div>
+    <ul id="catList" class="flist"></ul>
+  </section>
+
+  <section class="panel">
+    <h2>4. Файлы в папке</h2>
     <div class="line"><button id="reload" class="btn ghost" type="button">Обновить список</button></div>
     <ul id="flist" class="flist"></ul>
   </section>
 </main>
 <div id="toast" class="toast" hidden></div>
 <script src="config.js"></script>
+<script src="lib.js"></script>
 <script src="data.js"></script>
 <script src="admin.js"></script>
 </body>
