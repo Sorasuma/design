@@ -286,6 +286,7 @@ async function loadDop() {
       items.push(it); byId.set(it.id, it); fresh.set(k, it);
     }
     const url = f.url + (f.sha ? '?v=' + f.sha.slice(0, 7) : ''); // версия файла — чтобы замена с тем же именем сразу показывалась
+    if (label !== 'Общий фон' && !touched.has(it) && it.variants.length === 1 && it.variants[0].label === 'Общий фон') it.variants.length = 0; // у фона был один «общий фон» — сезонный файл из папки заменяет его
     const old = it.variants.find(v => v.label === label);
     if (old) old.url = url; // файл из папки заменяет вариант с тем же сезоном
     else { it.variants.push({ label, url }); it.variants.sort((a, b) => SEA_ORDER.indexOf(a.label) - SEA_ORDER.indexOf(b.label)); }

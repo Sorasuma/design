@@ -55,7 +55,8 @@ function compute(r) {
   const hit = items.find(i => key(i.name) === key(safe));
   const sea = SEASONS.find(s => s[1] === r.season)[0];
   r.el.querySelector('.fn').textContent = r.filename || 'введите название';
-  r.el.querySelector('.hint').textContent = !safe ? '' : hit ? `Фон «${hit.name}» есть в каталоге: вариант «${sea}» будет добавлен или заменён.` : 'Такого фона в каталоге нет — появится новая карточка в «Новые фоны». Проверьте написание.';
+  const single = hit && hit.variants.length === 1 && hit.variants[0].label === 'Общий фон' && r.season !== 'общий_фон';
+  r.el.querySelector('.hint').textContent = !safe ? '' : single ? `У фона «${hit.name}» сейчас один общий фон — он будет заменён на «${sea}».` : hit ? `Фон «${hit.name}» есть в каталоге: вариант «${sea}» будет добавлен или заменён.` : 'Такого фона в каталоге нет — появится новая карточка в «Новые фоны». Проверьте написание.';
   refreshBtn();
 }
 function addFiles(list) {
