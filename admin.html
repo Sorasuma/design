@@ -48,17 +48,22 @@
 
   <section class="panel">
     <h2>2. Загрузка</h2>
+    <div class="line" style="margin-bottom:10px"><label for="upPage"><b>Раздел каталога:</b></label><select id="upPage" aria-label="Раздел каталога"></select></div>
+    <p class="meta" id="upNote"></p>
     <div id="drop" class="drop" tabindex="0" role="button">Перетащите изображения сюда или нажмите, чтобы выбрать<input id="files" type="file" accept="image/*" multiple hidden></div>
     <datalist id="names"></datalist>
+    <datalist id="labels"></datalist>
     <div id="rows"></div>
     <div class="line" style="margin-top:10px"><button id="upload" class="btn" type="button" disabled>Загрузить</button><span id="upStatus" class="st"></span></div>
   </section>
 
   <section class="panel">
     <h2>3. Каталог</h2>
-    <p class="meta">Главный источник данных сайта — файл <b>catalog.json</b> в папке. Загрузка и удаление ниже сами обновляют его; таблица нужна только для первого заполнения.</p>
+    <p class="meta">Главный источник данных сайта — файл <b>catalog.json</b> в папке. Загрузка и удаление ниже сами обновляют его; таблица нужна только для первого заполнения. Фоны хранятся в корне папки, остальные разделы — в подпапках (<code>dop/headers</code>, <code>dop/bots</code> …).</p>
+    <div class="line"><label for="catPage">Раздел:</label><select id="catPage" aria-label="Раздел для просмотра"></select></div>
+    <p id="catPageNote" class="meta"></p>
     <div id="catStatus" class="st"></div>
-    <div class="line"><button id="catSave" class="btn" type="button" hidden>Сохранить каталог на GitHub</button><input id="catQ" type="text" placeholder="Найти фон в каталоге…" aria-label="Поиск по каталогу"></div>
+    <div class="line"><button id="catSave" class="btn" type="button" hidden>Сохранить каталог на GitHub</button><input id="catQ" type="text" placeholder="Найти позицию в каталоге…" aria-label="Поиск по каталогу"></div>
     <ul id="catList" class="flist"></ul>
   </section>
 

@@ -1,7 +1,7 @@
 // Общие функции каталога и админки: чтение/запись catalog.json и сопоставление файлов из папки с фонами.
 (() => {
 'use strict';
-const VERSION = 'catalog-1';
+const VERSION = 'catalog-2';
 const DEFAULT_SOURCE = { owner: 'Sorasuma', repo: 'design', branch: 'main', path: 'dop' };
 const norm = s => String(s).toLowerCase().replace(/ё/g, 'е');
 const key = s => norm(s).replace(/[\s_-]+/g, '');
@@ -10,7 +10,7 @@ const SEA_ORDER = ['Общий фон', 'Зима', 'Осень', 'Весна', 
 const DOP_RE = /^(.*?)[_\s-]+(зима|осень|весна|лето|общий[_\s-]?фон|общий)$/i;
 const source = () => ({ ...DEFAULT_SOURCE, ...(window.DOP_SOURCE || {}) });
 const rawBase = S => `https://raw.githubusercontent.com/${S.owner}/${S.repo}/${S.branch}/${S.path}`;
-const plainUrl = (S, name) => `${rawBase(S)}/${encodeURIComponent(name)}`;
+const plainUrl = (S, name) => `${rawBase(S)}/${String(name).split('/').map(encodeURIComponent).join('/')}`; // name может содержать подпапку: headers/файл.jpg
 const catalogUrl = S => `${rawBase(S)}/catalog.json`;
 
 // «Название_сезон.jpg» -> { name, label }

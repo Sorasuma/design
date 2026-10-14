@@ -253,8 +253,9 @@ async function remoteCatalog(S) {
     const j = await r.json(); return Array.isArray(j.items) && j.items.length ? j : null;
   } catch (_) { return null; }
 }
-function applyCatalog(cat) {
-  items.splice(0, items.length, ...cat.items.map((x, n) => ({ group: '', location: '', authors: '', section: '', ...x, id: n + 1 })));
+function applyCatalog(cat) { applyItems(cat.items); }
+function applyItems(list) { // список позиций из catalog.json заменяет данные таблицы на этой странице
+  items.splice(0, items.length, ...list.map((x, n) => ({ group: '', location: '', authors: '', section: '', ...x, id: n + 1 })));
   items.forEach(i => { i._s = norm([i.name, i.location, i.group, i.authors, i.section].join(' ')); });
   byId.clear(); items.forEach(i => byId.set(i.id, i)); state.vi.clear();
   buildFilters(); render();
@@ -276,7 +277,13 @@ async function dopFiles(S) {
   }
 }
 async function loadDop() {
-  if (document.body.dataset.page !== 'index') return;
+  const page = document.body.dataset.page;
+  if (page !== 'index') { // остальные разделы: catalog.json -> pages[раздел], появляется после первой загрузки через админку
+    if (!window.DopLib) return;
+    const cat = await remoteCatalog(DopLib.source()), list = cat && cat.pages && cat.pages[page];
+    if (Array.isArray(list)) applyItems(list);
+    return;
+  }
   const info = document.createElement('div'); info.className = 'dop-info'; $('.foot').append(info);
   if (!window.DopLib) { info.textContent = 'Не удалось загрузить lib.js — проверьте, что файл лежит в корне репозитория рядом с index.html.'; return; }
   const S = DopLib.source();
