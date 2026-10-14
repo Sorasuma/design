@@ -33,13 +33,18 @@ function upsert(items, name, label, url, touched) {
   if (old) old.url = url; else { it.variants.push({ label, url }); it.variants.sort((a, b) => SEA_ORDER.indexOf(a.label) - SEA_ORDER.indexOf(b.label)); }
   return it;
 }
-// files: [{ name, url, sha }] -> Map(фон -> сезон), изменённые карточки
+// files: [{ name, url, sha }] -> Map(фон -> сезон) для изменённых карточек; touched.refreshed — сколько ссылок получили новую версию файла
 function merge(items, files) {
-  const have = new Set(items.flatMap(i => i.variants.map(v => dec(v.url)))), touched = new Map();
+  const known = new Map(), touched = new Map(); touched.refreshed = 0;
+  items.forEach(i => i.variants.forEach(v => known.set(dec(v.url), v)));
   for (const f of files) {
-    if (have.has(dec(f.url))) continue; // файл уже есть в каталоге
-    const { name, label } = parse(f.name);
-    const it = upsert(items, name, label, f.url + (f.sha ? '?v=' + f.sha.slice(0, 7) : ''), touched);
+    const nu = f.url + (f.sha ? '?v=' + f.sha.slice(0, 7) : ''), v = known.get(dec(f.url));
+    if (v) { // файл уже есть в каталоге: если его заменили под тем же именем — обновляем версию в ссылке (иначе покажется картинка из кэша)
+      const cur = (v.url.match(/\?v=([0-9a-f]+)/) || [])[1];
+      if (f.sha && cur !== f.sha.slice(0, 7)) { v.url = nu; touched.refreshed++; }
+      continue;
+    }
+    const { name, label } = parse(f.name), it = upsert(items, name, label, nu, touched);
     if (it) touched.set(it, label);
   }
   return touched;

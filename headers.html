@@ -4,14 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Шапки блогов — Design Archive</title>
+<script>try{var th=localStorage.getItem("theme");if(th)document.documentElement.dataset.theme=th}catch(e){}</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-page="headers">
 <header class="top">
   <div class="top-in">
-    <nav class="nav"><a href="index.html">Фоны</a><a href="headers.html" class=on>Шапки блогов</a><a href="bots.html">Боты</a><a href="medals.html">Медали</a><a href="clones.html">Клоны</a><a href="statuses.html">Статусы охоты</a><a href="hunt.html">Активная охота</a></nav>
+    <div class="bar"><nav class="nav"><a href="index.html">Фоны</a><a href="headers.html" class=on>Шапки блогов</a><a href="bots.html">Боты</a><a href="medals.html">Медали</a><a href="clones.html">Клоны</a><a href="statuses.html">Статусы охоты</a><a href="hunt.html">Активная охота</a></nav><button id="theme" type="button" class="tbtn" aria-label="Сменить тему"></button></div>
     <h1>Шапки блогов</h1>
-    <input id="q" type="search" placeholder="Поиск по названию, локации, автору…" autocomplete="off" aria-label="Поиск">
+    <input id="q" type="search" placeholder="Поиск по названию, локации, автору…  (клавиша / )" autocomplete="off" aria-label="Поиск">
     <div class="filters">
       <select id="fSection" aria-label="Раздел"></select>
       <select id="fGroup" aria-label="Территория"></select>
@@ -22,6 +23,7 @@
         <option value="az">А → Я</option>
         <option value="za">Я → А</option>
       </select>
+      <button id="favOnly" type="button" aria-pressed="false">☆ Избранное</button>
       <button id="reset" type="button">Сбросить</button>
     </div>
     <div id="count" class="count" aria-live="polite"></div>
@@ -34,7 +36,7 @@
   <details id="missing" class="missing"></details>
 </main>
 
-<footer class="foot">Изображения загружаются из репозитория <a href="https://github.com/NorthernClanAchievements/Design_Archive" target="_blank" rel="noopener">Design_Archive</a>. <span id="built"></span></footer>
+<footer class="foot">Изображения загружаются из репозитория <a href="https://github.com/NorthernClanAchievements/Design_Archive" target="_blank" rel="noopener">Design_Archive</a>. <span id="built"></span> · <a href="admin.html">Администратор</a></footer>
 
 <div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="m-box">
@@ -42,7 +44,7 @@
     <div id="mImgWrap" class="m-img loading">
       <span class="spin"></span>
       <img id="mImg" alt="">
-      <div class="err">Файл недоступен<br><button id="mRetry" type="button">Повторить</button></div>
+      <div class="err">Файл недоступен<br><button id="mRetry" type="button">Повторить</button><a class="errlink" target="_blank" rel="noopener">открыть ссылку</a></div>
     </div>
     <div class="m-side">
       <h2 id="mTitle"></h2>
@@ -52,12 +54,17 @@
         <select id="mFmt" aria-label="Формат скачивания"></select>
         <button id="mDl" class="dl" type="button">Скачать</button>
       </div>
-      <p class="hint">Клик по изображению — масштаб 100% / по размеру окна.</p>
+      <div class="ex"><button id="mCopy" type="button">Копировать ссылку</button><a id="mOpen" target="_blank" rel="noopener">Открыть оригинал</a></div>
+      <div class="m-nav"><button id="mPrev" type="button" aria-label="Предыдущий">‹</button><span id="mPos"></span><button id="mNext" type="button" aria-label="Следующий">›</button></div>
+      <p class="hint">Клик по изображению — масштаб 100% / по размеру окна. Стрелки ← → — соседние позиции.</p>
     </div>
   </div>
 </div>
+<button id="toTop" class="to-top" type="button" hidden aria-label="Наверх">↑</button>
 <div id="toast" class="toast" hidden role="status"></div>
 
+<script src="config.js"></script>
+<script src="lib.js"></script>
 <script src="data.js"></script>
 <script src="script.js"></script>
 </body>

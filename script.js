@@ -278,21 +278,27 @@ async function dopFiles(S) {
 async function loadDop() {
   if (document.body.dataset.page !== 'index') return;
   const info = document.createElement('div'); info.className = 'dop-info'; $('.foot').append(info);
-  if (!window.DopLib) { info.textContent = 'Не загружен файл lib.js — загрузите в репозиторий сайта ВСЕ файлы из архива.'; return; }
+  if (!window.DopLib) { info.textContent = 'Не удалось загрузить lib.js — проверьте, что файл лежит в корне репозитория рядом с index.html.'; return; }
   const S = DopLib.source();
   const done = txt => {
     info.innerHTML = esc(`${txt} Версия сайта: ${DopLib.VERSION}.`) + ' <a href="#" id="dopRefresh">Проверить заново</a>';
     $('#dopRefresh').addEventListener('click', e => { e.preventDefault(); try { Object.keys(localStorage).filter(k => k.startsWith(DOP_CACHE)).forEach(k => localStorage.removeItem(k)); } catch (_) { /* ничего */ } location.reload(); });
   };
-  const cat = await remoteCatalog(S);
-  if (cat) { applyCatalog(cat); return done(`Данные взяты из catalog.json (${cat.items.length} фонов).`); }
-  const files = await dopFiles(S);
-  done((files === null ? 'Папка с новыми фонами не прочитана.' : `catalog.json не найден; из папки подхвачено файлов: ${files.length}.`) + (files && !files.length ? ' (папка пуста, не найдена или репозиторий приватный)' : ''));
-  if (!files || !files.length) return;
-  const touched = DopLib.merge(items, files);
-  items.forEach(i => { if (!byId.has(i.id)) byId.set(i.id, i); });
-  touched.forEach((label, it) => { it._s = norm([it.name, it.location, it.group, it.authors, it.section].join(' ')); state.vi.set(it.id, it.variants.findIndex(v => v.label === label)); });
-  if (touched.size) { buildFilters(); render(); }
+  const [cat, files] = await Promise.all([remoteCatalog(S), dopFiles(S)]);
+  if (cat) applyCatalog(cat);
+  // файлы, положенные в папку вручную (через сайт GitHub), накладываются поверх каталога: название_сезон.jpg заменяет/добавляет вариант
+  let touched = new Map();
+  if (files && files.length) {
+    touched = DopLib.merge(items, files);
+    items.forEach(i => { if (!byId.has(i.id)) byId.set(i.id, i); });
+    touched.forEach((label, it) => { it._s = norm([it.name, it.location, it.group, it.authors, it.section].join(' ')); state.vi.set(it.id, it.variants.findIndex(v => v.label === label)); });
+    if (touched.size || touched.refreshed) { buildFilters(); render(); }
+  }
+  done([cat ? `catalog.json: ${cat.items.length} фонов` : 'catalog.json не найден', files === null ? 'папка с фонами не прочитана' : `файлов в папке: ${files.length}${files.length ? '' : ' (папка пуста, не найдена или репозиторий приватный)'}`].join('; ') + (touched.size ? `; обновлено фонов: ${touched.size}` : '') + '.');
+}
+function ensureLib(cb) { // lib.js подключается сам, даже если в старом index.html нет тега <script>
+  if (window.DopLib) return cb();
+  const s = document.createElement('script'); s.src = 'lib.js'; s.onload = cb; s.onerror = cb; document.head.append(s);
 }
 
 /* ---------- запуск ---------- */
@@ -306,5 +312,7 @@ if (missing.length) miss.innerHTML = `<summary>В таблице есть, но 
 else miss.hidden = true;
 $('#built').textContent = `Данные таблицы от ${built}.`;
 addEventListener('hashchange', () => { readHash(); render(); }); // вставили ссылку с фильтрами в ту же вкладку
-readHash(); paintTheme(); render(); loadDop();
+const foot = $('.foot'); // ссылка на админку добавляется и на старых страницах
+if (foot && !foot.querySelector('a[href="admin.html"]')) foot.insertAdjacentHTML('beforeend', ' · <a href="admin.html">Администратор</a>');
+readHash(); paintTheme(); render(); ensureLib(loadDop);
 })();

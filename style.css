@@ -107,3 +107,7 @@ main{max-width:1300px;margin:0 auto;padding:16px}
 .admin details{margin-top:8px}.admin details ol{margin:8px 0;padding-left:20px;line-height:1.55}
 .admin a{color:var(--acc)}
 .err a{color:inherit;font-size:12px;text-decoration:underline}
+.flist li.citem{display:block;border-top:1px solid var(--line);padding:8px 0}
+.cvar{display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:99px;padding:2px 4px 2px 10px;font-size:12.5px;margin:3px 6px 0 0}
+.cvar .x{border:0;background:none;color:var(--err);cursor:pointer;font-size:14px}
+.cvar .rp{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:99px;padding:1px 8px;font-size:12px;cursor:pointer}

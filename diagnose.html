@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Диагностика каталога</title>
+<style>
+body{font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;max-width:860px;margin:0 auto;padding:16px;background:#f4f6f9;color:#1b2430}
+@media(prefers-color-scheme:dark){body{background:#12161c;color:#e8edf3}.row{background:#1b222b!important;border-color:#2c3643!important}input{background:#1b222b;color:inherit;border-color:#2c3643!important}}
+h1{font-size:20px}
+.line{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+input{flex:1 1 240px;padding:9px 11px;border:1px solid #d9e0ea;border-radius:8px;font:inherit}
+button{padding:9px 16px;border:0;border-radius:8px;background:#2f6fdb;color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button.g{background:#66758a}
+.row{background:#fff;border:1px solid #d9e0ea;border-radius:10px;padding:8px 12px;margin:6px 0;word-break:break-word}
+.ok{border-left:5px solid #2e9e57}.bad{border-left:5px solid #c0392b}.warn{border-left:5px solid #e0a300}
+small{color:#66758a}
+</style>
+</head>
+<body>
+<h1>Диагностика каталога</h1>
+<p>Проверяет файлы сайта, доступ к репозиторию и то, что сайт покажет для выбранного фона. Токен не нужен.</p>
+<div class="line"><input id="nm" value="Конец ледяного моста" aria-label="Название фона"><button id="run" type="button">Проверить</button><button id="copy" class="g" type="button">Скопировать результат</button></div>
+<div id="out"></div>
+<script>
+(() => {
+const $ = s => document.querySelector(s), out = $('#out'), report = [];
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const key = s => String(s).toLowerCase().replace(/ё/g, 'е').replace(/[\s_-]+/g, '');
+function add(state, title, detail) { // true / false / null (предупреждение)
+  report.push(`${state === true ? '[OK]' : state === false ? '[ОШИБКА]' : '[!]'} ${title}${detail ? ' — ' + detail : ''}`);
+  out.insertAdjacentHTML('beforeend', `<div class="row ${state === true ? 'ok' : state === false ? 'bad' : 'warn'}"><b>${esc(title)}</b>${detail ? '<br><small>' + esc(detail) + '</small>' : ''}</div>`);
+}
+const short = u => decodeURIComponent(u).replace('https://raw.githubusercontent.com/', '');
+const loads = u => new Promise(ok => { const im = new Image(); im.onload = () => ok(true); im.onerror = () => ok(false); im.src = u + (u.includes('?') ? '&' : '?') + 'chk=' + Date.now(); });
+
+async function run() {
+  out.innerHTML = ''; report.length = 0;
+  const name = $('#nm').value.trim();
+  report.push(`Страница: ${location.href}`, `Фон: ${name}`, `Время: ${new Date().toISOString()}`);
+
+  // 1. файлы сайта
+  const checks = {
+    'index.html': t => t.includes('lib.js') || 'старый index.html: нет подключения lib.js',
+    'script.js': t => t.includes('remoteCatalog') || 'старая версия script.js',
+    'lib.js': t => t.includes('DopLib') || 'файл есть, но содержимое неверное',
+    'config.js': () => true, 'data.js': t => t.includes('PAGES') || 'неверное содержимое',
+    'admin.html': t => t.includes('catSave') || 'старая версия admin.html', 'admin.js': t => t.includes('saveCat') || 'старая версия admin.js'
+  };
+  let cfg = '';
+  for (const [f, chk] of Object.entries(checks)) {
+    try {
+      const r = await fetch(f + '?x=' + Date.now(), { cache: 'no-store' });
+      if (!r.ok) { add(false, `Файл сайта ${f}`, `не найден (HTTP ${r.status}). Загрузите его в корень репозитория сайта.`); continue; }
+      const t = await r.text(); if (f === 'config.js') cfg = t;
+      const v = chk(t); add(v === true, `Файл сайта ${f}`, v === true ? 'на месте, версия новая' : v + '. Загрузите свежий файл из архива.');
+    } catch (_) { add(false, `Файл сайта ${f}`, 'не удалось загрузить (страница открыта не с сайта?)'); }
+  }
+
+  // 2. настройки
+  const g = k => (cfg.match(new RegExp(k + "\\s*:\\s*'([^']*)'")) || [])[1];
+  const S = { owner: g('owner') || 'Sorasuma', repo: g('repo') || 'design', branch: g('branch') || 'main', path: g('path') || 'dop' };
+  add(true, 'Настройки репозитория', `${S.owner}/${S.repo}, ветка ${S.branch}, папка ${S.path}${cfg ? '' : ' (config.js не найден — значения по умолчанию)'}`);
+  const raw = `https://raw.githubusercontent.com/${S.owner}/${S.repo}/${S.branch}/${S.path}`;
+
+  // 3. catalog.json
+  let cat = null;
+  try {
+    const r = await fetch(`${raw}/catalog.json?t=${Date.now()}`);
+    if (r.ok) { cat = await r.json(); add(true, 'catalog.json в репозитории', `найден, фонов: ${cat.items.length}`); }
+    else add(null, 'catalog.json в репозитории', `нет (HTTP ${r.status}). Сайт работает по таблице и файлам из папки. Чтобы создать каталог: admin.html → «Сохранить каталог на GitHub».`);
+  } catch (_) { add(false, 'catalog.json в репозитории', 'не удалось загрузить: репозиторий приватный или нет связи с GitHub.'); }
+
+  // 4. папка через API
+  let files = null;
+  try {
+    const r = await fetch(`https://api.github.com/repos/${S.owner}/${S.repo}/contents/${S.path}?ref=${S.branch}`), rem = r.headers.get('x-ratelimit-remaining');
+    if (r.ok) { files = (await r.json()).filter(x => x.type === 'file'); add(true, 'Папка через GitHub API', `файлов: ${files.length}${rem ? `; осталось запросов в этот час: ${rem}` : ''}`); }
+    else add(false, 'Папка через GitHub API', r.status === 404 ? 'HTTP 404: репозиторий приватный либо неверно указаны владелец/репозиторий/ветка/папка в config.js.' : r.status === 403 ? 'HTTP 403: исчерпан лимит запросов GitHub, подождите до часа.' : `HTTP ${r.status}`);
+  } catch (_) { add(false, 'Папка через GitHub API', 'нет связи с GitHub.'); }
+
+  // 5. файлы этого фона в папке и их публичная доступность
+  const mine = files ? files.filter(f => key(f.name).includes(key(name))) : [];
+  if (files) {
+    if (!mine.length) add(false, `Файлы фона «${name}» в папке`, 'нет ни одного файла с таким названием в имени. Имя должно быть вида «Конец_ледяного_моста_общий_фон.jpg».');
+    for (const f of mine) { const u = `${raw}/${encodeURIComponent(f.name)}`; add(await loads(u), `Файл ${f.name}`, (await loads(u)) ? 'открывается по публичной ссылке' : 'по публичной ссылке НЕ открывается (приватный репозиторий или неверный путь)'); }
+  }
+
+  // 6. итог
+  const it = cat && cat.items.find(i => i.section === 'Актуальные' && key(i.name) === key(name));
+  if (cat && it) {
+    const mark = `/${S.owner}/${S.repo}/`, bad = it.variants.filter(v => !v.url.includes(mark));
+    it.variants.forEach(v => report.push(`    вариант ${v.label || 'файл'}: ${short(v.url)}`));
+    if (!bad.length) add(true, `Итог: сайт покажет «${it.name}» из вашей папки`, it.variants.map(v => `${v.label}: ${short(v.url).slice(0, 90)}`).join(' | '));
+    else add(false, `Итог: в каталоге у «${it.name}» остались старые ссылки`, `${bad.map(v => v.label + ': ' + short(v.url).slice(0, 80)).join(' | ')}. В admin.html загрузите файл этого фона заново — запись обновится.`);
+  } else if (cat) {
+    const near = cat.items.filter(i => key(i.name).includes(key(name).slice(0, 5))).slice(0, 6).map(i => i.name).join(', ');
+    add(false, `Итог: фона «${name}» нет в каталоге`, `Проверьте написание.${near ? ' Похожие: ' + near : ''}`);
+  } else if (mine.length) add(null, 'Итог', 'catalog.json нет, но файл в папке найден: сайт подхватит его по названию. Если на странице «Фоны» всё равно старая картинка — откройте её через Ctrl+F5 и пришлите строку из самого низа страницы.');
+  else if (files) add(false, 'Итог', 'сайту нечем заменить старую ссылку: нет ни catalog.json, ни подходящего файла в папке.');
+  else add(false, 'Итог', 'сайт не видит ни catalog.json, ни папку: чаще всего репозиторий приватный (сделайте его публичным) либо неверные владелец/репозиторий/ветка/папка в config.js.');
+}
+$('#run').addEventListener('click', run);
+$('#copy').addEventListener('click', async () => { try { await navigator.clipboard.writeText(report.join('\n')); $('#copy').textContent = 'Скопировано'; } catch (_) { $('#copy').textContent = 'Выделите текст и скопируйте вручную'; } setTimeout(() => { $('#copy').textContent = 'Скопировать результат'; }, 2500); });
+run();
+})();
+</script>
+</body>
+</html>

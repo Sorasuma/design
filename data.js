@@ -1,4 +1,4 @@
-window.PAGES_BUILT = "2026-10-09";
+window.PAGES_BUILT = "2026-10-13";
 window.PAGES = {
  "index": {
   "title": "Фоны",

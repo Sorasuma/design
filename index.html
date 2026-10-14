@@ -36,7 +36,7 @@
   <details id="missing" class="missing"></details>
 </main>
 
-<footer class="foot">Изображения загружаются из репозитория <a href="https://github.com/NorthernClanAchievements/Design_Archive" target="_blank" rel="noopener">Design_Archive</a>. <span id="built"></span></footer>
+<footer class="foot">Изображения загружаются из репозитория <a href="https://github.com/NorthernClanAchievements/Design_Archive" target="_blank" rel="noopener">Design_Archive</a>. <span id="built"></span> · <a href="admin.html">Администратор</a></footer>
 
 <div id="modal" class="modal" hidden role="dialog" aria-modal="true" aria-labelledby="mTitle">
   <div class="m-box">
@@ -44,7 +44,7 @@
     <div id="mImgWrap" class="m-img loading">
       <span class="spin"></span>
       <img id="mImg" alt="">
-      <div class="err">Файл недоступен<br><button id="mRetry" type="button">Повторить</button></div>
+      <div class="err">Файл недоступен<br><button id="mRetry" type="button">Повторить</button><a class="errlink" target="_blank" rel="noopener">открыть ссылку</a></div>
     </div>
     <div class="m-side">
       <h2 id="mTitle"></h2>
@@ -63,6 +63,8 @@
 <button id="toTop" class="to-top" type="button" hidden aria-label="Наверх">↑</button>
 <div id="toast" class="toast" hidden role="status"></div>
 
+<script src="config.js"></script>
+<script src="lib.js"></script>
 <script src="data.js"></script>
 <script src="script.js"></script>
 </body>

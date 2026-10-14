@@ -1,7 +1,10 @@
-(() => {
+(async () => {
 'use strict';
 const $ = s => document.querySelector(s);
-if (!window.DopLib) { document.body.insertAdjacentHTML('afterbegin', '<p class="st bad" style="padding:16px">Не загружен файл lib.js — загрузите в репозиторий сайта ВСЕ файлы из архива.</p>'); return; }
+if (!window.DopLib) await new Promise(res => { const sc = document.createElement('script'); sc.src = 'lib.js'; sc.onload = res; sc.onerror = res; document.head.append(sc); });
+const fail = m => document.body.insertAdjacentHTML('afterbegin', `<p class="st bad" style="padding:16px">${m}</p>`);
+if (!window.DopLib) return fail('Не удалось загрузить lib.js — он должен лежать в корне репозитория рядом с admin.html.');
+if (!$('#rpFile') || !window.PAGES) return fail('Файл admin.html или data.js устарел — загрузите свежие admin.html и data.js из архива.');
 const L = DopLib, S = L.source();
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const SEASONS = [['Общий фон', 'общий_фон'], ['Зима', 'зима'], ['Осень', 'осень'], ['Весна', 'весна'], ['Лето', 'лето']];
@@ -47,7 +50,7 @@ $('#logout').addEventListener('click', () => { $('#token').value = ''; saveToken
 $('#token').addEventListener('input', () => { saveToken(); refreshBtn(); });
 
 /* ---------- каталог (catalog.json) ---------- */
-const cat = { items: [], sha: '', exists: false, updated: '' };
+const cat = { items: [], sha: '', exists: false, updated: '', dirty: false };
 const strip = i => ({ name: i.name, section: i.section || '', group: i.group || '', location: i.location || '', authors: i.authors || '', variants: i.variants.map(v => ({ label: v.label, url: v.url })) });
 const imgFiles = () => current.filter(f => /\.(png|jpe?g|gif|webp|avif|bmp)$/i.test(f.name));
 async function loadCat() {
@@ -61,6 +64,8 @@ async function loadCat() {
     const j = await r.json(); let data;
     try { data = JSON.parse(L.fromB64(j.content)); } catch (_) { setSt('#catStatus', 'Не удалось прочитать catalog.json (файл повреждён или слишком большой).', true); return; }
     cat.items = data.items; cat.sha = j.sha; cat.exists = true; cat.updated = data.updated || '';
+    const t = L.merge(cat.items, imgFiles().map(f => ({ name: f.name, url: L.plainUrl(S, f.name), sha: f.sha }))); // файлы, добавленные в папку вручную
+    cat.dirty = t.size > 0 || t.refreshed > 0;
   } else { setSt('#catStatus', 'Каталог: ' + await errMsg(r), true); return; }
   renderCat();
 }
@@ -68,33 +73,57 @@ async function saveCat(message) {
   const body = { message, content: L.toB64(JSON.stringify({ updated: new Date().toISOString(), items: cat.items.map(strip) }, null, 1)), branch: S.branch, ...(cat.sha ? { sha: cat.sha } : {}) };
   const r = await api(url('catalog.json'), { method: 'PUT', body: JSON.stringify(body) });
   if (!r.ok) throw new Error(r.status === 409 || r.status === 422 ? 'каталог изменили в другом месте — обновите страницу и повторите' : await errMsg(r));
-  cat.sha = (await r.json()).content.sha; cat.exists = true; cat.updated = new Date().toISOString();
+  cat.sha = (await r.json()).content.sha; cat.exists = true; cat.dirty = false; cat.updated = new Date().toISOString();
 }
 function renderCat() {
-  setSt('#catStatus', cat.exists ? `Каталог на GitHub: ${cat.items.length} фонов, обновлён ${new Date(cat.updated).toLocaleString('ru')}. Сайт берёт данные отсюда.` : 'Каталога на GitHub ещё нет. Ниже — черновик из таблицы и файлов папки. Нажмите «Сохранить каталог на GitHub»: после этого сайт будет брать данные только из catalog.json.', cat.exists ? false : undefined);
-  $('#catSave').hidden = cat.exists;
+  setSt('#catStatus', !cat.exists ? 'Каталога на GitHub ещё нет. Ниже — черновик из таблицы и файлов папки. Нажмите «Сохранить каталог на GitHub»: после этого сайт будет брать данные из catalog.json.' : cat.dirty ? 'В папке есть файлы, которых нет в каталоге (или они обновились). Сайт их уже показывает; нажмите «Сохранить каталог на GitHub», чтобы записать ссылки в каталог.' : `Каталог на GitHub: ${cat.items.length} фонов, обновлён ${new Date(cat.updated).toLocaleString('ru')}.`, !cat.exists || cat.dirty ? undefined : false);
+  $('#catSave').hidden = cat.exists && !cat.dirty;
   const q = L.key($('#catQ').value), list = cat.items.map((it, i) => [it, i]).filter(([it]) => !q || L.key(it.name + it.location).includes(q));
-  $('#catList').innerHTML = list.slice(0, 40).map(([it, i]) => `<li class="citem"><div><b>${esc(it.name)}</b> <span class="meta">${esc([it.section === 'Архив старых' ? 'Архив' : '', it.location].filter(Boolean).join(' · '))}</span></div><div>${it.variants.map((v, k) => `<span class="cvar">${esc(v.label || 'Файл')} <a href="${esc(v.url)}" target="_blank" rel="noopener">открыть</a> <button type="button" class="x" data-i="${i}" data-k="${k}" aria-label="Убрать вариант">✕</button></span>`).join('')}</div></li>`).join('') + (list.length > 40 ? `<li class="meta">Показано 40 из ${list.length} — уточните поиск.</li>` : '');
+  $('#catList').innerHTML = list.slice(0, 40).map(([it, i]) => `<li class="citem"><div><b>${esc(it.name)}</b> <span class="meta">${esc([it.section === 'Архив старых' ? 'Архив' : '', it.location].filter(Boolean).join(' · '))}</span></div><div>${it.variants.map((v, k) => `<span class="cvar">${esc(v.label || 'Файл')} <a href="${esc(v.url)}" target="_blank" rel="noopener">открыть</a> ${it.section === 'Актуальные' ? `<button type="button" class="rp" data-i="${i}" data-k="${k}">Заменить</button>` : ''}<button type="button" class="x" data-i="${i}" data-k="${k}" aria-label="Убрать вариант">✕</button></span>`).join('')}</div></li>`).join('') + (list.length > 40 ? `<li class="meta">Показано 40 из ${list.length} — уточните поиск.</li>` : '');
 }
 $('#catQ').addEventListener('input', renderCat);
+let pendingRp = null;
+$('#rpFile').addEventListener('change', async e => { // «Заменить» у варианта: выбранный файл заменяет именно этот вариант, ссылка в каталоге обновляется
+  const f = e.target.files[0]; e.target.value = ''; if (!f || !pendingRp) return;
+  const it = cat.items[pendingRp.i], v = it.variants[pendingRp.k];
+  if (!confirm(`Заменить вариант «${v.label}» у фона «${it.name}» файлом «${f.name}»?`)) return;
+  setSt('#catStatus', 'Загрузка…'); let note = null;
+  try {
+    if (!(await checkAccess())) return;
+    await loadList(true);
+    const r = { file: f, name: it.name, season: (SEASONS.find(s => s[0] === v.label) || SEASONS[0])[1] }; r.filename = mkName(r.name, r.season, f);
+    const res = await uploadRow(r); await saveCat(`Каталог: заменён вариант «${v.label}» у «${it.name}»`);
+    note = [(res.warn ? '⚠ ' : '✓ ') + res.msg, !!res.warn];
+  } catch (err) { note = ['Не удалось заменить: ' + err.message, true]; }
+  await loadList(true); renderCat(); if (note) setSt('#catStatus', ...note);
+});
 $('#catSave').addEventListener('click', async () => {
   if (!(await checkAccess())) return;
   try { await saveCat('Каталог: создан из таблицы и папки'); renderCat(); setSt('#catStatus', 'Каталог сохранён. Сайт начнёт брать данные из него (изменения видны в течение минуты).', false); } catch (err) { setSt('#catStatus', 'Не удалось сохранить: ' + err.message, true); }
 });
 $('#catList').addEventListener('click', async e => {
+  const rp = e.target.closest('.rp');
+  if (rp) { pendingRp = { i: +rp.dataset.i, k: +rp.dataset.k }; $('#rpFile').click(); return; }
   const b = e.target.closest('.x'); if (!b) return;
   const it = cat.items[+b.dataset.i], v = it.variants[+b.dataset.k];
-  if (!confirm(`Убрать вариант «${v.label || 'Файл'}» у фона «${it.name}» из каталога?${it.variants.length === 1 ? ' Это единственный вариант — фон исчезнет с сайта.' : ''}`)) return;
+  const folder = L.rawBase(S) + '/', u0 = v.url.split('?')[0], fname = u0.startsWith(folder) ? decodeURIComponent(u0.slice(folder.length)) : '', file = fname && current.find(c => c.name === fname);
+  if (!confirm(`Убрать вариант «${v.label || 'Файл'}» у фона «${it.name}»?${file ? ` Файл «${file.name}» тоже будет удалён из папки.` : ''}${it.variants.length === 1 ? ' Это единственный вариант — фон исчезнет с сайта.' : ''}`)) return;
   it.variants.splice(+b.dataset.k, 1); if (!it.variants.length) cat.items.splice(+b.dataset.i, 1);
-  try { if (!cat.exists && !(await checkAccess())) return; await saveCat(`Каталог: убран вариант «${v.label}» у «${it.name}»`); setSt('#catStatus', 'Готово, каталог сохранён.', false); }
-  catch (err) { setSt('#catStatus', 'Не удалось сохранить: ' + err.message, true); }
-  renderCat();
+  let note = null;
+  try {
+    if (!cat.exists && !(await checkAccess())) return;
+    await saveCat(`Каталог: убран вариант «${v.label}» у «${it.name}»`);
+    if (file) await api(url(file.name), { method: 'DELETE', body: JSON.stringify({ message: `Удалён файл: ${file.name}`, sha: file.sha, branch: S.branch }) });
+    note = ['Готово: вариант убран, каталог сохранён.', false]; await loadList(true);
+  } catch (err) { note = ['Не удалось сохранить: ' + err.message, true]; }
+  renderCat(); if (note) setSt('#catStatus', ...note);
 });
 
 /* ---------- строки загрузки ---------- */
 const rows = [];
 const ext = f => (f.name.match(/\.([a-z0-9]+)$/i) || [, 'png'])[1].toLowerCase().replace('jpeg', 'jpg');
 const stem = n => n.replace(/\.[^.]+$/, '').toLowerCase();
+const mkName = (name, season, file) => { const safe = name.trim().replace(/[\\/:*?"<>|#%]/g, '').replace(/\s+/g, '_').replace(/\.+$/, ''); return safe ? `${safe}_${season}.${ext(file)}` : ''; };
 const seaLabel = v => SEASONS.find(s => s[1] === v)[0];
 function compute(r) {
   const safe = r.name.trim().replace(/[\\/:*?"<>|#%]/g, '').replace(/\s+/g, '_').replace(/\.+$/, '');
